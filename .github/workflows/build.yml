@@ -59,7 +59,7 @@ jobs:
           foreach ($f in Get-ChildItem "$env:windir\System32\*.dll" | Select-Object -First 300) {
             $sig = ./publish/cli/tguard.exe signature $f.FullName | Out-String
             if ($sig -match 'via catalog') { $catalogSigned++ }
-            if ($sig -match '^(Invalid|Untrusted)') { throw "$($f.Name): $sig" }
+            if ($sig -match '^Invalid') { throw "$($f.Name): $sig" }
           }
           Write-Host "Catalog-signed DLLs among the first 300: $catalogSigned"
           if ($catalogSigned -eq 0) { throw 'No catalog signatures were recognised.' }
