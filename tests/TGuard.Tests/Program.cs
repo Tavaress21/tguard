@@ -442,6 +442,17 @@ internal static class UpdateTests
         Assert.Equal(42, c.ReportAsync(Guid.NewGuid().ToString(), null, new ReportRequest { Type = "scam", Value = "https://x" }).GetAwaiter().GetResult());
         Assert.True(SiteClient.HelpUrl(settings).StartsWith(site + "area-cliente/tickets?novo=1&assunto=TGuard"), SiteClient.HelpUrl(settings));
 
+        var sync = new FakeHttp(new()
+        {
+            [site + "api/tguard/sync"] = "{\"ok\":true,\"account\":{\"name\":\"Ana\"},\"commands\":[{\"id\":7,\"type\":\"scan.quick\"}]}",
+        });
+        var sr = new SiteClient(settings, sync).SyncAsync(new SyncRequest { InstallId = Guid.NewGuid().ToString(), Status = new DeviceStatus { Threats30d = 2 } })
+            .GetAwaiter().GetResult();
+        Assert.True(sr.AccountName == "Ana" && sr.Commands.Count == 1 && sr.Commands[0].Id == 7 && sr.Commands[0].Type == "scan.quick", "sync answer not read");
+        var json = System.Text.Json.JsonSerializer.Serialize(new SyncRequest { Status = new DeviceStatus { Threats30d = 2, LastScanType = "quick" } },
+            new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web) { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower });
+        Assert.True(json.Contains("\"threats30d\":2") && json.Contains("\"last_scan_type\"") && json.Contains("\"install_id\""), json);
+
         var threw = false;
         try { new SiteClient(new TGuardSettings { SiteUrl = "http://site.example/" }); } catch (UriFormatException) { threw = true; }
         Assert.True(threw, "plain http site accepted");

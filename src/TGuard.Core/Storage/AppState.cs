@@ -14,6 +14,7 @@ public sealed class AppState
     public string? AccountName { get; set; }
     public string? AccountEmail { get; set; }
     public DateTimeOffset? LastPing { get; set; }
+    public DateTimeOffset? LastSyncedEvent { get; set; }
 
     public string EnsureInstallId()
     {

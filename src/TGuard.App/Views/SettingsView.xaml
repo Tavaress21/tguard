@@ -40,7 +40,7 @@
                         <CheckBox x:Name="Scheduled" Style="{StaticResource Switch}" Content="{s:Tr set.scheduled}" />
                     </DockPanel>
                     <Border Height="1" Background="{StaticResource Line}" />
-                    <CheckBox x:Name="Community" Style="{StaticResource Switch}" Content="{s:Tr set.community}" Margin="0,12" IsEnabled="False" />
+                    <CheckBox x:Name="Community" Style="{StaticResource Switch}" Content="{s:Tr set.community}" Margin="0,12" />
                 </StackPanel>
             </Border>
 

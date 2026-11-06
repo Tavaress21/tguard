@@ -54,6 +54,25 @@ public sealed class SiteClient
         return result;
     }
 
+    public async Task<SyncResponse> SyncAsync(SyncRequest request, CancellationToken ct = default)
+    {
+        using var resp = await PostAsync("api/tguard/sync", request, ct);
+        resp.EnsureSuccessStatusCode();
+        using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct));
+        var root = doc.RootElement;
+        var result = new SyncResponse();
+        if (root.TryGetProperty("account", out var acc))
+        {
+            if (acc.ValueKind == JsonValueKind.False) result.AccountRevoked = true;
+            else if (acc.ValueKind == JsonValueKind.Object && acc.TryGetProperty("name", out var n)) result.AccountName = n.GetString();
+        }
+        if (root.TryGetProperty("commands", out var cmds) && cmds.ValueKind == JsonValueKind.Array)
+            foreach (var c in cmds.EnumerateArray())
+                if (c.TryGetProperty("id", out var id) && id.TryGetInt64(out var cid) && c.TryGetProperty("type", out var type))
+                    result.Commands.Add(new RemoteCommand { Id = cid, Type = type.GetString() ?? "" });
+        return result;
+    }
+
     public async Task<LinkStart> StartLinkAsync(string installId, CancellationToken ct = default)
     {
         using var resp = await PostAsync("api/tguard/ligar", new { InstallId = installId, Os }, ct);
@@ -111,6 +130,68 @@ public sealed class SiteClient
         _http.PostAsJsonAsync(new Uri(_base, path), body, Json, ct);
 
     private static string? Trim(string? s, int max) => s is null ? null : s.Length <= max ? s : s[..max];
+}
+
+public sealed class SyncRequest
+{
+    public string InstallId { get; set; } = "";
+    public string? Token { get; set; }
+    public string Version { get; set; } = SiteClient.Version;
+    public string Os { get; set; } = SiteClient.Os;
+    public int Signatures { get; set; }
+    public DeviceStatus Status { get; set; } = new();
+    public List<SyncEvent> Events { get; set; } = new();
+    public List<CommandResult> Results { get; set; } = new();
+}
+
+public sealed class DeviceStatus
+{
+    public bool Realtime { get; set; }
+    public bool ProcessGuard { get; set; }
+    public bool Usb { get; set; }
+    public bool Ransomware { get; set; }
+    public bool Email { get; set; }
+    public int EmailAccounts { get; set; }
+    public int Quarantine { get; set; }
+    public int Threats30d { get; set; }
+    public DateTimeOffset? LastScan { get; set; }
+    public string? LastScanType { get; set; }
+    public DateTimeOffset? LastUpdate { get; set; }
+    public int Rules { get; set; }
+    public int BadUrls { get; set; }
+    public bool ScanRunning { get; set; }
+    public int ScanFiles { get; set; }
+}
+
+public sealed class SyncEvent
+{
+    public DateTimeOffset Date { get; set; }
+    public string Source { get; set; } = "";
+    public string Verdict { get; set; } = "";
+    public string Name { get; set; } = "";
+    public int Score { get; set; }
+    public string? File { get; set; }
+    public string? Action { get; set; }
+}
+
+public sealed class CommandResult
+{
+    public long Id { get; set; }
+    public bool Ok { get; set; }
+    public string Message { get; set; } = "";
+}
+
+public sealed class RemoteCommand
+{
+    public long Id { get; set; }
+    public string Type { get; set; } = "";
+}
+
+public sealed class SyncResponse
+{
+    public string? AccountName { get; set; }
+    public bool AccountRevoked { get; set; }
+    public List<RemoteCommand> Commands { get; } = new();
 }
 
 public sealed class PingResult

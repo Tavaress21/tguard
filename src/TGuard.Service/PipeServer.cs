@@ -20,11 +20,13 @@ public sealed class PipeServer : BackgroundService
     private readonly UpdateService _updates;
     private readonly RansomwareGuard _ransomware;
     private readonly EmailGuard _email;
+    private readonly SiteSync _sync;
 
     public PipeServer(ServiceState state, ScanManager scans, ILogger<PipeServer> log,
                       RealtimeProtection realtime, ProcessGuard processGuard, UsbGuard usb, UpdateService updates,
-                      RansomwareGuard ransomware, EmailGuard email)
+                      RansomwareGuard ransomware, EmailGuard email, SiteSync sync)
     {
+        _sync = sync;
         _ransomware = ransomware;
         _email = email;
         _state = state;
@@ -197,7 +199,9 @@ public sealed class PipeServer : BackgroundService
                     _state.State.AccountToken = poll.Token;
                     _state.State.AccountName = poll.Account?.Name;
                     _state.State.AccountEmail = poll.Account?.Email;
+                    _state.State.LastPing = null;
                     _state.State.Save();
+                    _sync.SyncSoon();
                 }
                 return Response.Success(new { poll.Linked, poll.Expired, account = Account() });
             }

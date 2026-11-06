@@ -1,11 +1,17 @@
-What's new in 0.2.0
+What's new in 0.3.0
 
-- Link the PC to your luis-tavares.pt account (optional) from Settings > Account and help.
-- "False positive" button in Quarantine: sends the file's SHA-256 for review. Files confirmed
-  as safe stop being detected on every PC with the next update.
-- "Get help" opens a support ticket with the TGuard and Windows versions already filled in.
-- Scam links and malicious files reported on luis-tavares.pt go into the hourly signed updates.
-- Anonymous daily statistics (TGuard and Windows version only), can be turned off in Settings.
+- Anti-ransomware: hidden decoy files in Documents, Desktop, Pictures, Videos and Music. If a
+  program starts encrypting or renaming files in bulk, it is stopped and quarantined.
+- Email protection: IMAP accounts (Gmail with an app password, Yahoo, SAPO, iCloud and others) are
+  checked every few minutes for malicious attachments, phishing links and spoofed senders.
+  Attachments opened in desktop Outlook are scanned too.
+- Web protection: TGuard extension for Chrome and Edge (TGuard-Web zip below, or Settings > Web
+  protection) blocks phishing and fake MB WAY, CTT, tax office and bank pages.
+- PCs linked to a luis-tavares.pt account now show their protection status and detected threats
+  in the client area, and can be asked to run a scan or update from there.
+- Fixes: the app reconnects to the service when it starts later, locked files are scanned once
+  they are released, folder exclusions work for every user profile, and files that can't be
+  deleted right away are removed on the next restart.
 
 Windows SmartScreen may warn that the publisher is unknown because the installer isn't
 code-signed yet. Click "More info" and then "Run anyway".

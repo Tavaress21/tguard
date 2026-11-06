@@ -202,6 +202,7 @@ public partial class SettingsView : UserControl, IRefreshable
         _settings.WatchFolders = Lines(Folders.Text);
         _settings.Exclusions = Lines(Exclusions.Text);
         _settings.UsageStats = UsageStats.IsChecked == true;
+        _settings.CommunitySharing = Community.IsChecked == true;
         _settings.RansomwareProtection = Ransomware.IsChecked == true;
         _settings.EmailProtection = EmailOn.IsChecked == true;
         try
