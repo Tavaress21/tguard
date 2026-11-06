@@ -37,6 +37,7 @@ public sealed class UrlAnalyzer
         ["linkedin"] = "linkedin.com", ["docusign"] = "docusign.com", ["dropbox"] = "dropbox.com",
         ["binance"] = "binance.com", ["coinbase"] = "coinbase.com", ["steam"] = "steampowered.com",
         ["correios"] = "ctt.pt", ["ctt-expresso"] = "ctt.pt", ["worten"] = "worten.pt", ["continente"] = "continente.pt",
+        ["viaverde"] = "viaverde.pt", ["caixageral"] = "cgd.pt", ["bancoctt"] = "bancoctt.pt",
     };
 
     private static readonly Dictionary<char, char> Homoglyphs = new()
@@ -112,7 +113,7 @@ public sealed class UrlAnalyzer
             r.Add(new(15, Loc.T("url.http_login", shortUrl), "url"));
 
         var reg = RegisteredDomain(host);
-        var regLabel = reg.Split('.')[0];
+        var regLabel = reg.Split('.')[0].Replace("-", "");
         var normalized = new string(host.Select(c => Homoglyphs.TryGetValue(c, out var n) ? n : c).Where(c => c != '-').ToArray());
         var isOfficial = Brands.Values.Any(o => reg == o || host.EndsWith("." + o));
         foreach (var (brand, official) in isOfficial ? Enumerable.Empty<KeyValuePair<string, string>>() : Brands)

@@ -42,6 +42,9 @@ jobs:
             dotnet publish src/TGuard.App -c Release -r win-x64 --self-contained false -o "$out/app"
           }
           Copy-Item scripts/Install-TGuard.ps1 $out/
+          Copy-Item browser "$out/browser" -Recurse
+          $v = ([xml](Get-Content Directory.Build.props)).Project.PropertyGroup.Version
+          Compress-Archive -Path browser/* -DestinationPath "$out/TGuard-Web-$v.zip" -Force
 
       - name: CLI smoke tests
         shell: pwsh
@@ -198,9 +201,10 @@ jobs:
         run: |
           $tag = "${{ github.ref_name }}"
           $setup = Get-ChildItem publish\TGuard-Setup-*.exe | Select-Object -First 1
+          $web = Get-ChildItem publish\TGuard-Web-*.zip | Select-Object -First 1
           gh release view $tag *> $null
-          if ($LASTEXITCODE -eq 0) { gh release upload $tag $setup.FullName --clobber }
-          else { gh release create $tag $setup.FullName --title "TGuard $($tag.TrimStart('v'))" --notes-file installer/RELEASE_NOTES.md }
+          if ($LASTEXITCODE -eq 0) { gh release upload $tag $setup.FullName $web.FullName --clobber }
+          else { gh release create $tag $setup.FullName $web.FullName --title "TGuard $($tag.TrimStart('v'))" --notes-file installer/RELEASE_NOTES.md }
 
       - uses: actions/upload-artifact@v4
         with:

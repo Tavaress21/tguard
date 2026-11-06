@@ -1,0 +1,51 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TGuard</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  main { max-width: 640px; margin: 9vh auto; padding: 0 24px; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 24px; padding: 36px; box-shadow: 0 20px 50px -30px rgba(19, 26, 82, .45); }
+  .badge { width: 64px; height: 64px; border-radius: 50%; background: var(--bad-soft); display: grid; place-items: center; margin-bottom: 22px; }
+  .badge svg { width: 30px; height: 30px; }
+  h1 { margin: 0 0 8px; font-size: 30px; font-weight: 800; color: var(--navy); }
+  .lead { margin: 0 0 22px; font-size: 17px; color: var(--muted); line-height: 1.5; }
+  .url { font-family: Consolas, monospace; font-size: 13px; background: var(--bg); border-radius: 12px; padding: 12px 14px; word-break: break-all; color: var(--ink); margin-bottom: 22px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 10px; }
+  ul { margin: 0 0 26px; padding: 0; list-style: none; }
+  li { padding: 8px 0 8px 22px; position: relative; border-bottom: 1px solid var(--line); font-size: 15px; }
+  li:last-child { border-bottom: 0; }
+  li::before { content: ""; position: absolute; left: 4px; top: 15px; width: 8px; height: 8px; border-radius: 50%; background: var(--bad); }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .more { margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); line-height: 1.5; }
+  .more button { margin-top: 10px; }
+  footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 22px; }
+</style>
+</head>
+<body>
+<main>
+  <div class="card">
+    <div class="badge">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="M12 8v4M12 16h.01"/></svg>
+    </div>
+    <h1 id="title"></h1>
+    <p class="lead" id="lead"></p>
+    <div class="url" id="url"></div>
+    <h2 id="why"></h2>
+    <ul id="reasons"></ul>
+    <div class="actions">
+      <button id="back"></button>
+      <a class="button secondary" id="report" target="_blank" rel="noopener"></a>
+    </div>
+    <div class="more">
+      <span id="note"></span><br>
+      <button class="ghost" id="proceed"></button>
+    </div>
+  </div>
+  <footer id="footer"></footer>
+</main>
+<script type="module" src="blocked.js"></script>
+</body>
+</html>
