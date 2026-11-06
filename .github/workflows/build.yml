@@ -165,7 +165,9 @@ jobs:
         run: |
           $tag = "${{ github.ref_name }}"
           $setup = Get-ChildItem publish\TGuard-Setup-*.exe | Select-Object -First 1
-          gh release create $tag $setup.FullName --title "TGuard $($tag.TrimStart('v'))" --notes-file installer/RELEASE_NOTES.md
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) { gh release upload $tag $setup.FullName --clobber }
+          else { gh release create $tag $setup.FullName --title "TGuard $($tag.TrimStart('v'))" --notes-file installer/RELEASE_NOTES.md }
 
       - uses: actions/upload-artifact@v4
         with:
