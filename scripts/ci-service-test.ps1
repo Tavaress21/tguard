@@ -69,17 +69,21 @@ try {
     New-Item -ItemType Directory -Force -Path $scanDir | Out-Null
     Set-Content -Path (Join-Path $scanDir 'ok.txt') -Value 'nothing to see here' -Encoding ascii
     Set-Content -Path (Join-Path $scanDir 'bad.cmd') -Value $bad -Encoding ascii
-    $start = Send-TGuard 'scan.start' @{ type = 'custom'; paths = @($scanDir) }
+    $denied = Send-TGuard 'scan.start' @{ type = 'custom'; paths = @('C:\Windows\System32') }
+    if ($denied.ok) { throw 'An untrusted client was allowed to start a custom scan.' }
+    $start = Send-TGuard 'scan.start' @{ type = 'quick' }
     if (-not $start.ok) { throw "scan.start failed: $($start.error)" }
     $done = $null
-    for ($i = 0; $i -lt 30 -and -not $done; $i++) {
+    for ($i = 0; $i -lt 300 -and -not $done; $i++) {
         Start-Sleep -Seconds 1
         $p = Send-TGuard 'scan.progress'
         if (-not $p.data.running) { $done = $p.data }
     }
-    if (-not $done) { throw 'Custom scan did not finish.' }
+    if (-not $done) { throw 'Quick scan did not finish.' }
     Write-Host "Scan: $($done.filesScanned) files, $($done.threats) threat(s)"
-    if ($done.filesScanned -lt 2 -or $done.threats -lt 1) { throw 'Custom scan missed the test threat.' }
+    if ($done.filesScanned -lt 2) { throw 'Quick scan did not scan anything.' }
+    $q = Send-TGuard 'quarantine.list'
+    if (-not (@($q.data) | Where-Object { $_.originalPath -like '*tguard-scan-test*bad.cmd' })) { throw 'The test threat was not quarantined.' }
     $st3 = Send-TGuard 'status'
     if (-not $st3.data.lastScan) { throw 'Last scan date was not saved.' }
 
