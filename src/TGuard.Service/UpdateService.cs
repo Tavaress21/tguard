@@ -9,7 +9,7 @@ namespace TGuard.Service;
 
 public sealed class UpdateService : BackgroundService
 {
-    private static readonly TimeSpan Interval = TimeSpan.FromHours(6);
+    private static readonly TimeSpan Interval = TimeSpan.FromHours(3);
 
     private readonly ServiceState _state;
     private readonly Notifier _notifier;

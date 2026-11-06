@@ -291,6 +291,18 @@ public sealed class Backend
 
     public async Task<AccountStatus?> UnlinkAsync() => (await Call("account.unlink")).As<AccountStatus>();
 
+    public async Task<List<TGuard.Core.Mail.EmailAccount>> EmailAccountsAsync()
+    {
+        if (!ServiceAvailable || Showcase is not null) return new();
+        var r = await _client.SendAsync("email.list");
+        return r.Ok ? r.As<List<TGuard.Core.Mail.EmailAccount>>() ?? new() : new();
+    }
+
+    public async Task AddEmailAsync(string user, string password, string host, bool moveThreats) =>
+        await Call("email.add", new { user, password, host, port = 993, ssl = true, moveThreats });
+
+    public async Task RemoveEmailAsync(string id) => await Call("email.remove", new { id });
+
     public async Task<int> ReportAsync(ReportRequest report) =>
         (await Call("report.send", report)).Data?["id"]?.GetValue<int>() ?? 0;
 

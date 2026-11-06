@@ -8,6 +8,13 @@ public sealed class RealtimeProtection : BackgroundService
 {
     private static readonly string[] IgnoreSuffix = { ".crdownload", ".part", ".tmp", ".partial", ".download", ".!ut", ".tgq", ".opdownload" };
 
+    private static readonly string[] OutlookFolders =
+    {
+        "%LOCALAPPDATA%\\Microsoft\\Windows\\INetCache\\Content.Outlook",
+        "%LOCALAPPDATA%\\Microsoft\\Olk\\Attachments",
+        "%LOCALAPPDATA%\\Packages\\Microsoft.OutlookForWindows_8wekyb3d8bbwe\\LocalCache\\Microsoft\\Olk\\Attachments",
+    };
+
     private readonly ServiceState _state;
     private readonly ILogger<RealtimeProtection> _log;
     private readonly List<FileSystemWatcher> _watchers = new();
@@ -49,7 +56,9 @@ public sealed class RealtimeProtection : BackgroundService
         {
             _exclusions = UserFolders.Expand(_state.Settings.Exclusions)
                 .Select(e => e.TrimEnd('\\', '/')).Where(e => e.Length > 2).ToList();
-            var wanted = _state.Settings.RealtimeEnabled ? UserFolders.Resolve(_state.Settings.WatchFolders) : new List<string>();
+            var patterns = _state.Settings.WatchFolders.ToList();
+            if (_state.Settings.EmailProtection) patterns.AddRange(OutlookFolders);
+            var wanted = _state.Settings.RealtimeEnabled ? UserFolders.Resolve(patterns) : new List<string>();
             if (wanted.Count == _folders.Count && wanted.All(f => _folders.Contains(f, StringComparer.OrdinalIgnoreCase)) && _watchers.Count == wanted.Count)
                 return;
             foreach (var w in _watchers) w.Dispose();

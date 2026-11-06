@@ -16,10 +16,14 @@ builder.Services.AddSingleton<RealtimeProtection>();
 builder.Services.AddSingleton<ProcessGuard>();
 builder.Services.AddSingleton<UsbGuard>();
 builder.Services.AddSingleton<UpdateService>();
+builder.Services.AddSingleton<RansomwareGuard>();
+builder.Services.AddSingleton<EmailGuard>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<RealtimeProtection>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<ProcessGuard>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<UsbGuard>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<UpdateService>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<RansomwareGuard>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<EmailGuard>());
 builder.Services.AddHostedService<PipeServer>();
 builder.Services.AddHostedService<Scheduler>();
 

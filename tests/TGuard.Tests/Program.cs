@@ -4,6 +4,7 @@ using System.Text;
 using TGuard.Core;
 using TGuard.Core.Analyzers;
 using TGuard.Core.Engine;
+using TGuard.Core.Mail;
 using TGuard.Core.Online;
 using TGuard.Core.Rules;
 using TGuard.Core.Storage;
@@ -516,6 +517,158 @@ internal static class UpdateTests
         e.Settings.AbuseChAuthKey = "";
         rep = new Updater(new FakeHttp(new())).RunAsync(e, e.Settings).GetAwaiter().GetResult();
         Assert.True(rep.Notes.Count == 1 && rep.Errors.Count == 1, "without a key abuse.ch should be skipped, not fail");
+    }
+}
+
+internal static class EmailTests
+{
+    private static readonly ScanEngine E = new(new TGuardSettings(), new SignatureDatabase(), RuleEngine.LoadDefault(Array.Empty<string>())) { UseWindowsContext = false };
+
+    public static byte[] Message(string from, string subject, string html, (string Name, byte[] Data)? attachment = null)
+    {
+        var sb = new StringBuilder();
+        sb.Append($"From: {from}\r\nTo: ana@example.pt\r\nSubject: {subject}\r\nMIME-Version: 1.0\r\n");
+        sb.Append("Content-Type: multipart/mixed; boundary=\"XYZ\"\r\n\r\n");
+        sb.Append("--XYZ\r\nContent-Type: multipart/alternative; boundary=\"ALT\"\r\n\r\n");
+        sb.Append("--ALT\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nOlá\r\n");
+        sb.Append("--ALT\r\nContent-Type: text/html; charset=utf-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n");
+        sb.Append(html.Replace("=", "=3D")).Append("\r\n--ALT--\r\n");
+        if (attachment is { } a)
+        {
+            sb.Append($"--XYZ\r\nContent-Type: application/octet-stream; name=\"{a.Name}\"\r\nContent-Disposition: attachment; filename*=UTF-8''{Uri.EscapeDataString(a.Name)}\r\n");
+            sb.Append("Content-Transfer-Encoding: base64\r\n\r\n");
+            sb.Append(Convert.ToBase64String(a.Data, Base64FormattingOptions.InsertLineBreaks)).Append("\r\n");
+        }
+        sb.Append("--XYZ--\r\n");
+        return Encoding.UTF8.GetBytes(sb.ToString());
+    }
+
+    [Test] static void MimeIsParsed()
+    {
+        var raw = Message("=?UTF-8?B?Q2FpeGEgR2VyYWw=?= <geral@cgd.pt>", "=?UTF-8?Q?Fatura_n=C2=BA_42?=", "<p>Ver <a href=\"https://cgd.pt/x\">aqui</a></p>",
+            ("relatório março.pdf", Encoding.ASCII.GetBytes("%PDF-1.4 test")));
+        var m = MimeMessage.Parse(raw);
+        Assert.Equal("Fatura nº 42", m.Subject);
+        Assert.Equal("geral@cgd.pt", m.FromAddress);
+        Assert.Equal("Caixa Geral", m.FromDisplayName);
+        Assert.True(m.Html.Contains("href=\"https://cgd.pt/x\""), m.Html);
+        Assert.Equal(1, m.Attachments.Count);
+        Assert.Equal("relatório março.pdf", m.Attachments[0].FileName);
+        Assert.Equal("%PDF-1.4 test", Encoding.ASCII.GetString(m.Attachments[0].Data));
+    }
+
+    [Test] static void PhishingEmailIsFlagged()
+    {
+        var raw = Message("\"MB WAY\" <alerta@mbway-reembolso.com>", "Reembolso pendente",
+            "<a href=\"http://mbway-reembolso.com/login\">https://www.mbway.pt</a>");
+        var r = EmailScanner.Scan(E, MimeMessage.Parse(raw));
+        Assert.True(r.Verdict != Verdict.Clean, $"score {r.Score}");
+        Assert.True(r.Findings.Any(f => f.Source == "email"), "spoofed sender not flagged");
+    }
+
+    [Test] static void MalwareAttachmentIsFlagged()
+    {
+        var raw = Message("loja@example.pt", "Encomenda", "<p>Segue em anexo</p>", ("encomenda.zip", Samples.Zip(("eicar.com", Samples.Eicar()))));
+        var r = EmailScanner.Scan(E, MimeMessage.Parse(raw));
+        Assert.Equal(Verdict.Malicious, r.Verdict);
+        Assert.Equal(1, r.BadAttachments.Count);
+    }
+
+    [Test] static void CleanEmailStaysClean()
+    {
+        var raw = Message("\"Caixa Geral de Depósitos\" <info@cgd.pt>", "Extrato", "<a href=\"https://www.cgd.pt/extrato\">Ver extrato</a>");
+        var r = EmailScanner.Scan(E, MimeMessage.Parse(raw));
+        Assert.Equal(Verdict.Clean, r.Verdict, string.Join(" | ", r.Findings.Select(f => f.Message)));
+    }
+
+    [Test] static void ImapClientReadsMessages()
+    {
+        var mail = Message("a@example.pt", "Teste", "<p>ok</p>");
+        var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
+        var server = Task.Run(async () =>
+        {
+            using var c = await listener.AcceptTcpClientAsync();
+            var s = c.GetStream();
+            var r = new StreamReader(s, Encoding.ASCII);
+            async Task W(string t) { var b = Encoding.ASCII.GetBytes(t); await s.WriteAsync(b); }
+            await W("* OK fake\r\n");
+            while (await r.ReadLineAsync() is string line)
+            {
+                var tag = line.Split(' ')[0];
+                var cmd = line[(tag.Length + 1)..];
+                if (cmd == "CAPABILITY") await W($"* CAPABILITY IMAP4rev1 MOVE\r\n{tag} OK done\r\n");
+                else if (cmd.StartsWith("LOGIN")) await W(cmd.Contains("\"segredo\"") ? $"{tag} OK in\r\n" : $"{tag} NO bad\r\n");
+                else if (cmd.StartsWith("SELECT")) await W($"* 3 EXISTS\r\n* OK [UIDVALIDITY 7] v\r\n* OK [UIDNEXT 12] n\r\n{tag} OK [READ-WRITE] sel\r\n");
+                else if (cmd.StartsWith("UID SEARCH")) await W($"* SEARCH 10 11\r\n{tag} OK s\r\n");
+                else if (cmd.Contains("RFC822.SIZE")) await W($"* 1 FETCH (UID 10 RFC822.SIZE {mail.Length})\r\n{tag} OK f\r\n");
+                else if (cmd.Contains("BODY.PEEK[]"))
+                {
+                    await W($"* 1 FETCH (UID 10 BODY[] {{{mail.Length}}}\r\n");
+                    await s.WriteAsync(mail);
+                    await W($")\r\n{tag} OK f\r\n");
+                }
+                else if (cmd == "LOGOUT") { await W($"* BYE\r\n{tag} OK bye\r\n"); break; }
+                else await W($"{tag} BAD ?\r\n");
+            }
+        });
+
+        using var imap = new ImapClient();
+        imap.ConnectAsync("127.0.0.1", port, false, default).GetAwaiter().GetResult();
+        var threw = false;
+        try { imap.LoginAsync("ana", "errada", default).GetAwaiter().GetResult(); } catch (ImapException) { threw = true; }
+        Assert.True(threw, "bad password accepted");
+        imap.LoginAsync("ana", "segredo", default).GetAwaiter().GetResult();
+        var (validity, next, exists) = imap.SelectAsync("INBOX", default).GetAwaiter().GetResult();
+        Assert.True(validity == 7 && next == 12 && exists == 3, $"{validity} {next} {exists}");
+        var uids = imap.SearchUidsFromAsync(10, default).GetAwaiter().GetResult();
+        Assert.Equal(2, uids.Count);
+        Assert.Equal((long)mail.Length, imap.SizeAsync(10, default).GetAwaiter().GetResult());
+        var body = imap.FetchAsync(10, default).GetAwaiter().GetResult();
+        Assert.Equal("Teste", MimeMessage.Parse(body!).Subject);
+        imap.LogoutAsync(default).GetAwaiter().GetResult();
+        server.Wait(5000);
+        listener.Stop();
+    }
+}
+
+internal static class RansomwareTests
+{
+    [Test] static void CanaryChangeIsDetected()
+    {
+        var d = new RansomwareDetector();
+        var path = Path.Combine("C:", "Users", "Ana", "Documents", RansomwareDetector.CanaryPrefix + ".docx");
+        var original = RansomwareDetector.CanaryContent(".docx");
+        d.Register(path, original);
+        Assert.Equal(null, d.OnChange(path, ChangeKind.Changed, null, DateTime.UtcNow, _ => original));
+        Assert.True(d.OnChange(path, ChangeKind.Changed, null, DateTime.UtcNow, _ => new byte[] { 1, 2, 3 }) is not null, "modified canary not detected");
+        Assert.True(d.OnChange(path + ".locked", ChangeKind.Renamed, path, DateTime.UtcNow, _ => null) is not null, "renamed canary not detected");
+    }
+
+    [Test] static void EncryptionBurstIsDetected()
+    {
+        var d = new RansomwareDetector();
+        var now = DateTime.UtcNow;
+        string? hit = null;
+        for (var i = 0; i < 12 && hit is null; i++)
+            hit = d.OnChange($@"C:\Users\Ana\Pictures\foto{i}.jpg.crypt", ChangeKind.Renamed, $@"C:\Users\Ana\Pictures\foto{i}.jpg", now.AddMilliseconds(i * 200), _ => null);
+        Assert.True(hit is not null, "burst not detected");
+    }
+
+    [Test] static void NormalFileActivityIsIgnored()
+    {
+        var d = new RansomwareDetector();
+        var now = DateTime.UtcNow;
+        for (var i = 0; i < 40; i++)
+        {
+            Assert.Equal(null, d.OnChange($@"C:\Users\Ana\Downloads\setup{i}.exe", ChangeKind.Renamed, $@"C:\Users\Ana\Downloads\setup{i}.exe.crdownload", now, _ => null));
+            Assert.Equal(null, d.OnChange($@"C:\Users\Ana\Documents\relatorio{i}.docx", ChangeKind.Renamed, $@"C:\Users\Ana\Documents\~WRL{i}.tmp", now, _ => null));
+            Assert.Equal(null, d.OnChange($@"C:\Users\Ana\Documents\notas{i}.txt", ChangeKind.Created, null, now, _ => null));
+            Assert.Equal(null, d.OnChange($@"C:\Users\Ana\Documents\velho{i}.docx", ChangeKind.Deleted, null, now, _ => null));
+        }
+        Assert.True(!RansomwareDetector.IsExtensionSwap("a.docx", "a.pdf"), "known extension change flagged");
+        Assert.True(RansomwareDetector.IsAppendedExtension("contrato.pdf.lockbit"), "appended extension missed");
     }
 }
 

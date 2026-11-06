@@ -14,6 +14,7 @@ public static class TGuardPaths
     public static string Signatures => Path.Combine(Root, "signatures.db");
     public static string UrlBlocklist => Path.Combine(Root, "urls.db");
     public static string Allowlist => Path.Combine(Root, "allow.db");
+    public static string EmailAccounts => Path.Combine(Root, "email.json");
     public static string QuarantineDir => Path.Combine(Root, "Quarantine");
     public static string Events => Path.Combine(Root, "events.jsonl");
     public static string UserRules => Path.Combine(Root, "Rules");
@@ -56,6 +57,8 @@ public sealed class TGuardSettings
 
     public bool ProcessGuardEnabled { get; set; } = true;
     public bool UsbScanEnabled { get; set; } = true;
+    public bool RansomwareProtection { get; set; } = true;
+    public bool EmailProtection { get; set; } = true;
 
     public bool CommunitySharing { get; set; } = false;
 

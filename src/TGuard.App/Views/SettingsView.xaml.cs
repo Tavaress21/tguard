@@ -50,6 +50,12 @@ public partial class SettingsView : UserControl, IRefreshable
         Exclusions.Text = string.Join(Environment.NewLine, _settings.Exclusions);
         Startup.IsChecked = IsInStartup();
         UsageStats.IsChecked = _settings.UsageStats;
+        Ransomware.IsChecked = _settings.RansomwareProtection;
+        Ransomware.IsEnabled = App.Backend.ServiceAvailable;
+        EmailOn.IsChecked = _settings.EmailProtection;
+        EmailOn.IsEnabled = App.Backend.ServiceAvailable;
+        AddEmailButton.IsEnabled = App.Backend.ServiceAvailable;
+        await ShowEmailAccountsAsync();
         UsageStats.IsEnabled = App.Backend.ServiceAvailable;
         Saved.Text = "";
         if (_linking is null) ShowAccount(await App.Backend.AccountAsync());
@@ -116,6 +122,57 @@ public partial class SettingsView : UserControl, IRefreshable
         if (!_linkCancelled) AccountNote.Text = S.T("acc.expired");
     }
 
+    private async Task ShowEmailAccountsAsync()
+    {
+        var accounts = await App.Backend.EmailAccountsAsync();
+        EmailAccounts.ItemsSource = accounts.Select(a => new EmailRow(a)).ToList();
+        EmailNone.Visibility = accounts.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private async void AddEmail_Click(object sender, RoutedEventArgs e)
+    {
+        AddEmailButton.IsEnabled = false;
+        AddEmailButton.Content = S.T("email.adding");
+        try
+        {
+            await App.Backend.AddEmailAsync(EmailUser.Text.Trim(), EmailPassword.Password, EmailHost.Text.Trim(), EmailMove.IsChecked == true);
+            EmailPassword.Clear();
+            EmailUser.Clear();
+            EmailHost.Clear();
+            Saved.Text = S.T("email.added");
+            await ShowEmailAccountsAsync();
+        }
+        catch (Exception ex) { Dialog.Alert(S.T("error"), QuarantineView.Friendly(ex), DialogKind.Danger); }
+        finally
+        {
+            AddEmailButton.Content = S.T("email.add");
+            AddEmailButton.IsEnabled = App.Backend.ServiceAvailable;
+        }
+    }
+
+    private async void RemoveEmail_Click(object sender, RoutedEventArgs e)
+    {
+        if (((Button)sender).Tag is not string id) return;
+        try
+        {
+            await App.Backend.RemoveEmailAsync(id);
+            await ShowEmailAccountsAsync();
+        }
+        catch (Exception ex) { Dialog.Alert(S.T("error"), QuarantineView.Friendly(ex), DialogKind.Danger); }
+    }
+
+    private void InstallWeb_Click(object sender, RoutedEventArgs e)
+    {
+        var dir = System.IO.Path.GetFullPath(System.IO.Path.Combine(AppContext.BaseDirectory, "..", "browser"));
+        if (!System.IO.Directory.Exists(dir)) dir = System.IO.Path.Combine(AppContext.BaseDirectory, "browser");
+        if (System.IO.Directory.Exists(dir))
+        {
+            try { Process.Start(new ProcessStartInfo("explorer.exe", $"\"{dir}\"") { UseShellExecute = true }); }
+            catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException) { }
+        }
+        Dialog.Alert(S.T("web.install"), S.T("web.steps") + "\n\n" + dir, DialogKind.Info);
+    }
+
     private void Help_Click(object sender, RoutedEventArgs e) => Open(SiteClient.HelpUrl(_settings));
 
     private void ReportScam_Click(object sender, RoutedEventArgs e) => Open(SiteClient.ReportUrl(_settings));
@@ -145,6 +202,8 @@ public partial class SettingsView : UserControl, IRefreshable
         _settings.WatchFolders = Lines(Folders.Text);
         _settings.Exclusions = Lines(Exclusions.Text);
         _settings.UsageStats = UsageStats.IsChecked == true;
+        _settings.RansomwareProtection = Ransomware.IsChecked == true;
+        _settings.EmailProtection = EmailOn.IsChecked == true;
         try
         {
             await App.Backend.SaveSettingsAsync(_settings);

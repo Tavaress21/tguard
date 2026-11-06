@@ -47,6 +47,11 @@ public sealed class ServiceStatus
     public bool RealtimeEnabled { get; set; }
     public bool ProcessGuardActive { get; set; }
     public bool UsbProtection { get; set; }
+    public bool RansomwareActive { get; set; }
+    public int ProtectedFolders { get; set; }
+    public bool EmailActive { get; set; }
+    public int EmailAccounts { get; set; }
+    public bool AccountLinked { get; set; }
     public bool AutoUpdate { get; set; }
     public int BadUrls { get; set; }
     public int WatchedFolders { get; set; }

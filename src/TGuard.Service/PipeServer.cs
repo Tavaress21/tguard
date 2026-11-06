@@ -18,10 +18,15 @@ public sealed class PipeServer : BackgroundService
     private readonly ProcessGuard _processGuard;
     private readonly UsbGuard _usb;
     private readonly UpdateService _updates;
+    private readonly RansomwareGuard _ransomware;
+    private readonly EmailGuard _email;
 
     public PipeServer(ServiceState state, ScanManager scans, ILogger<PipeServer> log,
-                      RealtimeProtection realtime, ProcessGuard processGuard, UsbGuard usb, UpdateService updates)
+                      RealtimeProtection realtime, ProcessGuard processGuard, UsbGuard usb, UpdateService updates,
+                      RansomwareGuard ransomware, EmailGuard email)
     {
+        _ransomware = ransomware;
+        _email = email;
         _state = state;
         _scans = scans;
         _log = log;
@@ -80,7 +85,7 @@ public sealed class PipeServer : BackgroundService
 
     private static readonly HashSet<string> Privileged = new()
         { "settings.set", "quarantine.restore", "quarantine.delete", "scan.cancel", "trust.remove",
-          "account.link.start", "account.link.poll", "account.unlink", "report.send" };
+          "account.link.start", "account.link.poll", "account.unlink", "report.send", "email.add", "email.remove" };
 
     private AccountStatus Account() => new()
     {
@@ -102,6 +107,11 @@ public sealed class PipeServer : BackgroundService
                     RealtimeEnabled = _state.Settings.RealtimeEnabled,
                     ProcessGuardActive = _processGuard.Active,
                     UsbProtection = _usb.Active,
+                    RansomwareActive = _ransomware.Active,
+                    ProtectedFolders = _ransomware.ProtectedFolderCount,
+                    EmailActive = _email.Active,
+                    EmailAccounts = _email.Accounts().Count,
+                    AccountLinked = !string.IsNullOrEmpty(_state.State.AccountToken),
                     AutoUpdate = _state.Settings.AutoUpdate,
                     BadUrls = _state.Engine.Blocklist.Count,
                     LastUpdate = _state.State.LastUpdate,
@@ -161,6 +171,19 @@ public sealed class PipeServer : BackgroundService
                 s.SiteUrl = _state.Settings.SiteUrl;
                 _state.UpdateSettings(s);
                 return Response.Success(s);
+
+            case "email.list":
+                return Response.Success(_email.Accounts());
+            case "email.add":
+                return Response.Success(await _email.AddAsync(Arg("user"), Arg("password"), Arg("host"),
+                    req.Args?["port"]?.GetValue<int>() ?? 0, req.Args?["ssl"]?.GetValue<bool>() ?? true,
+                    req.Args?["moveThreats"]?.GetValue<bool>() ?? true, CancellationToken.None));
+            case "email.remove":
+                _email.Remove(Arg("id"));
+                return Response.Success(_email.Accounts());
+            case "email.check":
+                _email.CheckNow();
+                return Response.Success();
 
             case "account.status":
                 return Response.Success(Account());

@@ -21,11 +21,6 @@ public partial class ProtectionsView : UserControl, IRefreshable
             StatusBackground = Palette.B(on ? "GoodSoft" : "BadSoft"),
             StatusForeground = Palette.B(on ? "Good" : "Bad"),
         };
-        ModuleRow Soon(string key, string glyph) => new()
-        {
-            Title = S.T(key), Description = S.T(key + ".sub"), Glyph = glyph, Status = S.T("soon"),
-            StatusBackground = Palette.B("WarnSoft"), StatusForeground = Palette.B("Warn"),
-        };
 
         var svc = App.Backend.ServiceAvailable;
         ModuleRow Needs(string key, string glyph, string? desc = null) => new()
@@ -41,9 +36,17 @@ public partial class ProtectionsView : UserControl, IRefreshable
             Active("prot.updates", Glyph.Recent, st.AutoUpdate),
             svc ? Active("prot.scheduled", Glyph.Calendar, settings.ScheduledQuickScan, S.F("prot.scheduled.sub", settings.ScheduledQuickScanHour))
                 : Needs("prot.scheduled", Glyph.Calendar, S.F("prot.scheduled.sub", settings.ScheduledQuickScanHour)),
-            Soon("prot.email", Glyph.Mail),
-            Soon("prot.ransom", Glyph.Lock),
-            Soon("prot.web", Glyph.Globe),
+            svc ? Active("prot.email", Glyph.Mail, settings.EmailProtection,
+                    st.EmailAccounts > 0 ? S.F("prot.email.active.sub", st.EmailAccounts) : S.T("prot.email.none.sub"))
+                : Needs("prot.email", Glyph.Mail),
+            svc ? Active("prot.ransom", Glyph.Lock, st.RansomwareActive,
+                    st.RansomwareActive ? S.F("prot.ransom.active.sub", st.ProtectedFolders) : null)
+                : Needs("prot.ransom", Glyph.Lock),
+            new ModuleRow
+            {
+                Title = S.T("prot.web"), Description = S.T("prot.web.install.sub"), Glyph = Glyph.Globe, Status = S.T("prot.web.install"),
+                StatusBackground = Palette.B("InfoSoft"), StatusForeground = Palette.B("Info"),
+            },
         };
     }
 }

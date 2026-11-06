@@ -49,7 +49,7 @@ public sealed class EventRow
         var (bg, fg, label) = Palette.ForVerdict(e.Verdict);
         PillBackground = bg; PillForeground = fg; VerdictLabel = label;
         Glyph = e.Verdict == "clean" ? Services.Glyph.Check : e.Verdict == "malicious" ? Services.Glyph.Shield : Services.Glyph.Warning;
-        Title = System.IO.Path.GetFileName(e.Target) is { Length: > 0 } n ? n : e.Target;
+        Title = e.Source is "email" or "process" ? e.Target : System.IO.Path.GetFileName(e.Target) is { Length: > 0 } n ? n : e.Target;
         Subtitle = string.IsNullOrEmpty(e.Action) ? e.Headline : $"{e.Headline} · {e.Action}";
         Path = e.Target;
         When = Palette.Ago(e.Date);
@@ -58,6 +58,10 @@ public sealed class EventRow
             "realtime" => Loc.Pick("Tempo real", "Real-time"),
             "email" => "Email",
             "scan" => Loc.Pick("Análise", "Scan"),
+            "process" => Loc.Pick("Execução", "Execution"),
+            "usb" => "USB",
+            "ransomware" => "Ransomware",
+            "remote" => Loc.Pick("Pedido do site", "Site request"),
             _ => e.Source,
         };
         Reasons = string.Join("\n", e.Reasons.Select(r => "• " + r));
@@ -149,4 +153,21 @@ public sealed class ModuleRow
     public Brush StatusBackground { get; init; } = Brushes.Transparent;
     public Brush StatusForeground { get; init; } = Brushes.Black;
     public string Glyph { get; init; } = "";
+}
+
+public sealed class EmailRow
+{
+    public EmailRow(TGuard.Core.Mail.EmailAccount a)
+    {
+        Id = a.Id;
+        User = a.User;
+        var when = a.LastCheck is { } t ? Palette.Ago(t) : S.T("email.never");
+        Status = string.IsNullOrEmpty(a.LastError) ? S.F("email.status", a.Scanned, a.Threats, when) : a.LastError!;
+        StatusBrush = Palette.B(string.IsNullOrEmpty(a.LastError) ? "Muted" : "Bad");
+    }
+
+    public string Id { get; }
+    public string User { get; }
+    public string Status { get; }
+    public System.Windows.Media.Brush StatusBrush { get; }
 }
