@@ -21,7 +21,7 @@ if (args.Length == 0 || args[0] is "-h" or "--help" or "help")
     Console.WriteLine("""
         TGuard - free, open-source antivirus
 
-          tguard scan <path>... [--all] [--quarantine]
+          tguard scan <path>... [--all] [--quarantine] [--depth N]
           tguard quarantine list | restore <id> | delete <id>
           tguard check          PC security check
           tguard update         download the latest signatures
@@ -53,7 +53,9 @@ int Scan(string[] a)
 {
     var showAll = a.Contains("--all") || a.Contains("--todos");
     var quarantine = a.Contains("--quarantine") || a.Contains("--quarentena");
-    var paths = a.Where(x => !x.StartsWith("--")).ToList();
+    var depthArg = Array.IndexOf(a, "--depth");
+    var depth = depthArg >= 0 && depthArg + 1 < a.Length && int.TryParse(a[depthArg + 1], out var d) ? d : int.MaxValue;
+    var paths = a.Where((x, i) => !x.StartsWith("--") && !(depthArg >= 0 && i == depthArg + 1)).ToList();
     if (paths.Count == 0) { Console.Error.WriteLine("Give a folder or file to scan."); return 2; }
 
     var engine = ScanEngine.CreateDefault(settings);
@@ -64,7 +66,7 @@ int Scan(string[] a)
     var self = AppContext.BaseDirectory;
 
     foreach (var p in paths)
-    foreach (var f in engine.EnumerateFiles(Path.GetFullPath(p)))
+    foreach (var f in engine.EnumerateFiles(Path.GetFullPath(p), default, depth))
     {
         if (f.StartsWith(self, StringComparison.OrdinalIgnoreCase)) continue;
         total++;
@@ -153,7 +155,7 @@ int Signature(string? file)
 {
     if (file is null || !File.Exists(file)) { Console.Error.WriteLine("File not found."); return 2; }
     var sig = FileContext.VerifySignature(file);
-    Console.WriteLine($"{sig.State}{(sig.Signer is null ? "" : $" ({sig.Signer})")}");
+    Console.WriteLine($"{sig.State}{(sig.Signer is null ? "" : $" ({sig.Signer})")}{(sig.ViaCatalog ? " via catalog" : "")}");
     var origin = FileContext.ReadWebOrigin(file);
     if (origin is not null) Console.WriteLine($"Zone {origin.ZoneId}, from {origin.HostUrl ?? origin.ReferrerUrl ?? "?"}");
     return 0;

@@ -49,8 +49,11 @@ public sealed class CompiledRule
 
     public string Description => Loc.Pick(Def.DescriptionPt, Def.DescriptionEn);
 
+    // Executables are full of legitimate strings (help text, export tables, error messages), so
+    // text rules only run on them when they opt in with "pe". PE files are judged by their
+    // structure, imports and signature instead.
     public bool AppliesTo(string category) =>
-        Def.FileTypes.Contains("any") || Def.FileTypes.Contains(category);
+        Def.FileTypes.Contains(category) || (Def.FileTypes.Contains("any") && category != "pe");
 
     public bool Matches(string latin1)
     {

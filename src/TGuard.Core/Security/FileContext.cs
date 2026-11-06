@@ -5,7 +5,11 @@ namespace TGuard.Core.Security;
 
 public enum SignatureState { NotChecked, Unsigned, Valid, Invalid, Untrusted }
 
-public sealed record SignatureInfo(SignatureState State, string? Signer = null);
+public sealed record SignatureInfo(SignatureState State, string? Signer = null, bool ViaCatalog = false)
+{
+    public bool IsMicrosoft => State == SignatureState.Valid && Signer is not null &&
+                               Signer.StartsWith("Microsoft", StringComparison.OrdinalIgnoreCase);
+}
 
 public sealed record WebOrigin(int ZoneId, string? HostUrl, string? ReferrerUrl)
 {
@@ -59,6 +63,13 @@ public static class FileContext
                 }
                 catch (Exception) { }
             }
+            // most Windows system files carry no embedded signature: they are signed through
+            // a security catalog (C:\Windows\System32\CatRoot), so look there too
+            if (result is WinTrust.TRUST_E_NOSIGNATURE or WinTrust.TRUST_E_SUBJECT_FORM_UNKNOWN)
+            {
+                var cat = Catalog.Verify(path);
+                if (cat is not null) return cat;
+            }
             return result switch
             {
                 0 => new(SignatureState.Valid, signer),
@@ -68,6 +79,79 @@ public static class FileContext
             };
         }
         catch (Exception) { return new(SignatureState.NotChecked); }
+    }
+
+    private static class Catalog
+    {
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        private struct CATALOG_INFO
+        {
+            public uint cbStruct;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)]
+            public string wszCatalogFile;
+        }
+
+        [DllImport("wintrust.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        private static extern bool CryptCATAdminAcquireContext2(out IntPtr catAdmin, IntPtr subsystem, string hashAlgorithm, IntPtr strongHashPolicy, uint flags);
+
+        [DllImport("wintrust.dll", SetLastError = true)]
+        private static extern bool CryptCATAdminCalcHashFromFileHandle2(IntPtr catAdmin, Microsoft.Win32.SafeHandles.SafeFileHandle file, ref uint hashSize, byte[]? hash, uint flags);
+
+        [DllImport("wintrust.dll", SetLastError = true)]
+        private static extern IntPtr CryptCATAdminEnumCatalogFromHash(IntPtr catAdmin, byte[] hash, uint hashSize, uint flags, IntPtr prevCatInfo);
+
+        [DllImport("wintrust.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        private static extern bool CryptCATCatalogInfoFromContext(IntPtr catInfo, ref CATALOG_INFO info, uint flags);
+
+        [DllImport("wintrust.dll")]
+        private static extern bool CryptCATAdminReleaseCatalogContext(IntPtr catAdmin, IntPtr catInfo, uint flags);
+
+        [DllImport("wintrust.dll")]
+        private static extern bool CryptCATAdminReleaseContext(IntPtr catAdmin, uint flags);
+
+        public static SignatureInfo? Verify(string path)
+        {
+            foreach (var algorithm in new[] { "SHA256", "SHA1" })
+            {
+                if (!CryptCATAdminAcquireContext2(out var admin, IntPtr.Zero, algorithm, IntPtr.Zero, 0)) continue;
+                try
+                {
+                    byte[] hash;
+                    using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+                    {
+                        uint size = 0;
+                        CryptCATAdminCalcHashFromFileHandle2(admin, fs.SafeFileHandle, ref size, null, 0);
+                        if (size == 0) continue;
+                        hash = new byte[size];
+                        if (!CryptCATAdminCalcHashFromFileHandle2(admin, fs.SafeFileHandle, ref size, hash, 0)) continue;
+                    }
+                    var catInfo = CryptCATAdminEnumCatalogFromHash(admin, hash, (uint)hash.Length, 0, IntPtr.Zero);
+                    if (catInfo == IntPtr.Zero) continue;
+                    try
+                    {
+                        var info = new CATALOG_INFO { cbStruct = (uint)Marshal.SizeOf<CATALOG_INFO>() };
+                        if (!CryptCATCatalogInfoFromContext(catInfo, ref info, 0)) continue;
+                        var result = WinTrust.VerifyCatalogMember(info.wszCatalogFile, path, Convert.ToHexString(hash), admin);
+                        string? signer = null;
+                        try
+                        {
+#pragma warning disable SYSLIB0057
+                            using var cert = new X509Certificate2(X509Certificate.CreateFromSignedFile(info.wszCatalogFile));
+#pragma warning restore SYSLIB0057
+                            signer = cert.GetNameInfo(X509NameType.SimpleName, false);
+                        }
+                        catch (Exception) { }
+                        return result == 0
+                            ? new SignatureInfo(SignatureState.Valid, signer, ViaCatalog: true)
+                            : new SignatureInfo(SignatureState.Invalid, signer, ViaCatalog: true);
+                    }
+                    finally { CryptCATAdminReleaseCatalogContext(admin, catInfo, 0); }
+                }
+                catch (Exception) { }
+                finally { CryptCATAdminReleaseContext(admin, 0); }
+            }
+            return null;
+        }
     }
 
     private static class WinTrust
@@ -109,6 +193,62 @@ public static class FileContext
 
         [DllImport("wintrust.dll", ExactSpelling = true, SetLastError = false, CharSet = CharSet.Unicode)]
         private static extern int WinVerifyTrust(IntPtr hwnd, ref Guid action, ref WINTRUST_DATA data);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct WINTRUST_CATALOG_INFO
+        {
+            public uint cbStruct;
+            public uint dwCatalogVersion;
+            public IntPtr pcwszCatalogFilePath;
+            public IntPtr pcwszMemberTag;
+            public IntPtr pcwszMemberFilePath;
+            public IntPtr hMemberFile;
+            public IntPtr pbCalculatedFileHash;
+            public uint cbCalculatedFileHash;
+            public IntPtr pcCatalogContext;
+            public IntPtr hCatAdmin;
+        }
+
+        public static int VerifyCatalogMember(string catalogPath, string filePath, string memberTag, IntPtr catAdmin)
+        {
+            var catPtr = Marshal.StringToHGlobalUni(catalogPath);
+            var tagPtr = Marshal.StringToHGlobalUni(memberTag);
+            var filePtr = Marshal.StringToHGlobalUni(filePath);
+            var info = new WINTRUST_CATALOG_INFO
+            {
+                cbStruct = (uint)Marshal.SizeOf<WINTRUST_CATALOG_INFO>(),
+                pcwszCatalogFilePath = catPtr,
+                pcwszMemberTag = tagPtr,
+                pcwszMemberFilePath = filePtr,
+                hCatAdmin = catAdmin,
+            };
+            var infoPtr = Marshal.AllocHGlobal(Marshal.SizeOf<WINTRUST_CATALOG_INFO>());
+            Marshal.StructureToPtr(info, infoPtr, false);
+            var data = new WINTRUST_DATA
+            {
+                cbStruct = (uint)Marshal.SizeOf<WINTRUST_DATA>(),
+                dwUIChoice = 2,
+                fdwRevocationChecks = 0,
+                dwUnionChoice = 2,   // catalog
+                pFile = infoPtr,
+                dwStateAction = 1,
+                dwProvFlags = 0x00001000,
+            };
+            var action = ActionGenericVerifyV2;
+            try
+            {
+                return WinVerifyTrust(IntPtr.Zero, ref action, ref data);
+            }
+            finally
+            {
+                data.dwStateAction = 2;
+                WinVerifyTrust(IntPtr.Zero, ref action, ref data);
+                Marshal.FreeHGlobal(infoPtr);
+                Marshal.FreeHGlobal(catPtr);
+                Marshal.FreeHGlobal(tagPtr);
+                Marshal.FreeHGlobal(filePtr);
+            }
+        }
 
         public static int Verify(string path)
         {

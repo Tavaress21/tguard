@@ -48,11 +48,6 @@
     },
     "condition": "(iex and dl) or chain",
     "filetypes": [
-      "script",
-      "office",
-      "lnk",
-      "html",
-      "pdf",
       "any"
     ]
   },
@@ -195,7 +190,8 @@
     },
     "condition": "3",
     "filetypes": [
-      "pe"
+      "script",
+      "data"
     ]
   },
   {
@@ -223,7 +219,8 @@
     },
     "condition": "(a or b or c) and d and net",
     "filetypes": [
-      "pe"
+      "script",
+      "data"
     ]
   },
   {
@@ -248,7 +245,8 @@
     },
     "condition": "3",
     "filetypes": [
-      "pe"
+      "script",
+      "data"
     ]
   },
   {

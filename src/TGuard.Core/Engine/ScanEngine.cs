@@ -136,6 +136,7 @@ public sealed class ScanEngine
         if (origin is not null) ApplyOrigin(r, origin);
 
         var trustedSigner = false;
+        var microsoft = false;
         // signature checks are slow-ish, only do them when they can change the verdict
         if (r.Kind == FileKind.Pe && r.Findings.Any(f => f.Score > 0 && f.Source != "signature"))
         {
@@ -144,7 +145,9 @@ public sealed class ScanEngine
             {
                 case SignatureState.Valid:
                     trustedSigner = true;
+                    microsoft = sig.IsMicrosoft;
                     r.Findings.Add(new(0, Loc.T("sig.valid", sig.Signer ?? "?"), "signature-ok"));
+                    r.Findings.RemoveAll(f => f.Message == Loc.T("pe.unsigned"));
                     break;
                 case SignatureState.Invalid:
                     r.Findings.Add(new(45, Loc.T("sig.invalid"), "signature-bad"));
@@ -154,16 +157,16 @@ public sealed class ScanEngine
                     break;
             }
         }
-        Rescore(r, trustedSigner);
+        Rescore(r, trustedSigner, microsoft);
     }
 
-    private void Rescore(ScanResult r, bool trustedSigner)
+    private void Rescore(ScanResult r, bool trustedSigner, bool microsoft = false)
     {
         var own = Combine(r.Findings.Select(f => f.Score));
         var childMax = r.Children.Count > 0 ? r.Children.Max(c => c.Score) : 0;
         var score = Combine(new[] { own, childMax });
         var hardHit = r.Findings.Any(f => f.Source == "signature" || (f.Source.StartsWith("rule:") && f.Score >= Settings.ThresholdMalicious));
-        if (trustedSigner && !hardHit) score = Math.Max(0, score - 35);
+        if (trustedSigner && !hardHit) score = microsoft ? 0 : Math.Max(0, score - 35);
         r.Score = score;
         r.Verdict = VerdictFor(score);
         if (r.Verdict == Verdict.Clean) r.ThreatName = null;

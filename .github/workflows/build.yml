@@ -54,6 +54,9 @@ jobs:
           if ($sig -notmatch '^Valid') { throw 'Authenticode check did not work.' }
           $unsigned = ./publish/cli/tguard.exe signature ./publish/cli/tguard.dll | Out-String
           if ($unsigned -notmatch '^Unsigned') { throw "Unsigned file reported as: $unsigned" }
+          $cat = ./publish/cli/tguard.exe signature "$env:windir\System32\kernel32.dll" | Out-String
+          Write-Host $cat
+          if ($cat -notmatch '^Valid \(Microsoft.*catalog') { throw "Catalog signature of kernel32.dll not recognised: $cat" }
           $out = ./publish/cli/tguard.exe scan "$env:ProgramFiles\dotnet\dotnet.exe" --all | Out-String
           if ($out -notmatch "CLEAN") { throw 'Signed Microsoft binary was not considered clean.' }
           # false positives: scan a big folder of legit Windows/.NET binaries
@@ -61,6 +64,9 @@ jobs:
           $sw = [Diagnostics.Stopwatch]::StartNew()
           ./publish/cli/tguard.exe scan "$env:windir\System32\WindowsPowerShell" $runtime.FullName "$env:ProgramFiles\dotnet\dotnet.exe"
           $code = $LASTEXITCODE
+          # every DLL/EXE directly in System32 and SysWOW64 must come out clean
+          ./publish/cli/tguard.exe scan "$env:windir\System32" "$env:windir\SysWOW64" --depth 0
+          if ($LASTEXITCODE -ne 0) { $code = $LASTEXITCODE }
           Write-Host "False-positive scan took $([int]$sw.Elapsed.TotalSeconds)s"
           $global:LASTEXITCODE = $code
           if ($LASTEXITCODE -ne 0) { throw 'False positives on legit Windows/.NET files.' }
