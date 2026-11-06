@@ -46,6 +46,20 @@ public static class SelfTest
                 Save(win, Path.Combine(outDir, $"{key}.png"));
                 Console.WriteLine($"ok {key}");
             }
+            App.Backend.Showcase = new ServiceStatus
+            {
+                Version = typeof(SelfTest).Assembly.GetName().Version?.ToString(3) ?? "",
+                RealtimeEnabled = true, ProcessGuardActive = true, UsbProtection = true, AutoUpdate = true,
+                BadUrls = 48213, WatchedFolders = 6, Signatures = 312874, Rules = 22, QuarantineCount = 2, ThreatsLast30Days = 3,
+                LastScan = DateTimeOffset.Now.AddHours(-3), LastUpdate = DateTimeOffset.Now.AddMinutes(-40),
+            };
+            win.Navigate("dashboard");
+            if (win.Host.Content is IRefreshable showcase) await showcase.RefreshAsync();
+            await Task.Delay(300);
+            win.UpdateLayout();
+            Save(win, Path.Combine(outDir, "showcase.png"));
+            App.Backend.Showcase = null;
+
             var dlg = Dialog.Preview(S.T("q.restore.title"), S.T("q.restore.confirm") + "\n\n" + S.T("q.restore.note"), S.T("q.restore"), DialogKind.Warning);
             dlg.Left = -20000; dlg.ShowActivated = false; dlg.WindowStartupLocation = WindowStartupLocation.Manual;
             dlg.Show();

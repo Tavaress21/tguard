@@ -23,7 +23,15 @@ public sealed class Backend
     private readonly EventStore _localEvents;
     private CancellationTokenSource? _localScanCts;
 
-    public bool ServiceAvailable { get; private set; }
+    private bool _serviceAvailable;
+
+    public bool ServiceAvailable
+    {
+        get => _serviceAvailable || Showcase is not null;
+        private set => _serviceAvailable = value;
+    }
+
+    public ServiceStatus? Showcase { get; set; }
 
     public bool NotificationsEnabled { get; private set; } = true;
     public ScanProgress? LocalScan { get; private set; }
@@ -63,7 +71,8 @@ public sealed class Backend
 
     public async Task<ServiceStatus> GetStatusAsync()
     {
-        if (ServiceAvailable)
+        if (Showcase is not null) return Showcase;
+        if (_serviceAvailable)
         {
             var r = await _client.SendAsync("status");
             if (r.Ok) return r.As<ServiceStatus>() ?? new();
@@ -217,7 +226,7 @@ public sealed class Backend
 
     public async Task<List<SecurityEvent>> EventsAsync()
     {
-        if (ServiceAvailable) return (await _client.SendAsync("events", new { onlyThreats = true })).As<List<SecurityEvent>>() ?? new();
+        if (_serviceAvailable) return (await _client.SendAsync("events", new { onlyThreats = true })).As<List<SecurityEvent>>() ?? new();
         return _localEvents.Recent(300, true);
     }
 
