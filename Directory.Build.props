@@ -8,5 +8,10 @@
     <Product>TGuard</Product>
     <Copyright>© 2026 Luís Tavares — MIT</Copyright>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <TieredPGO>true</TieredPGO>
   </PropertyGroup>
+  <ItemGroup>
+    <RuntimeHostConfigurationOption Include="System.GC.ConserveMemory" Value="7" />
+  </ItemGroup>
 </Project>

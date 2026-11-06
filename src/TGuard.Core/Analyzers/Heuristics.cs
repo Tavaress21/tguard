@@ -127,7 +127,7 @@ public static class Heuristics
         }
         else if (kind == FileKind.Rtf)
         {
-            var t = Encoding.Latin1.GetString(data);
+            var t = Encoding.Latin1.GetString(data, 0, Math.Min(data.Length, 16 * 1024 * 1024));
             if (Regex.IsMatch(t, @"\\obj(data|update|emb)", RegexOptions.IgnoreCase)) list.Add(new(30, Loc.T("office.rtfobj")));
             if (Regex.IsMatch(t, @"equation\.?3", RegexOptions.IgnoreCase)) list.Add(new(50, Loc.T("office.equation")));
         }
@@ -219,7 +219,10 @@ public static class Heuristics
 
     public static IEnumerable<Finding> Pdf(byte[] data)
     {
-        var t = Encoding.Latin1.GetString(data);
+        const int Window = 8 * 1024 * 1024;
+        var t = data.Length <= 2 * Window
+            ? Encoding.Latin1.GetString(data)
+            : Encoding.Latin1.GetString(data, 0, Window) + "\n" + Encoding.Latin1.GetString(data, data.Length - Window, Window);
         if (t.Contains("/EmbeddedFile")) yield return new(20, Loc.T("pdf.embedded"));
         if (Regex.IsMatch(t, @"/Launch\b")) yield return new(30, Loc.T("pdf.launch"));
         if (Regex.IsMatch(t, @"/(JavaScript|JS)\b")) yield return new(15, Loc.T("pdf.js"));
