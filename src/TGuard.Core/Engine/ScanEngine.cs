@@ -193,9 +193,14 @@ public sealed class ScanEngine
         var category = RuleEngine.CategoryOf(r.Kind);
         if (category != "archive")
         {
-            var text = RuleEngine.ToLatin1(data);
+            // rules look at the first and last 8 MB: enough for scripts and droppers, and keeps
+            // big installers from taking seconds per file
+            const int Window = 8 * 1024 * 1024;
+            var text = data.Length <= 2 * Window
+                ? RuleEngine.ToLatin1(data)
+                : RuleEngine.ToLatin1(data.AsSpan(0, Window)) + "\n" + RuleEngine.ToLatin1(data.AsSpan(data.Length - Window));
             if (r.Kind is FileKind.Pe or FileKind.Lnk or FileKind.OfficeOle or FileKind.Data)
-                text += "\n" + Heuristics.ExtractWideStrings(data);
+                text += "\n" + Heuristics.ExtractWideStrings(data.AsSpan(0, Math.Min(data.Length, 2 * Window)));
             if (r.Kind == FileKind.OfficeOle)
             {
                 var vba = Heuristics.ExtractVbaSource(data);
