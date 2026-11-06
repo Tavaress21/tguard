@@ -2,7 +2,7 @@
 
 $source  = 'https://raw.githubusercontent.com/Tavaress21/tguard/updates/';
 $target  = getenv('TGUARD_UPDATES_DIR') ?: __DIR__ . '/../public_html/tguard/updates';
-$files   = ['feeds.json', 'feeds.json.sig', 'signatures.txt', 'urls.txt', 'rules.json', 'app.json', 'app.json.sig'];
+$files   = ['feeds.json', 'feeds.json.sig', 'signatures.txt', 'urls.txt', 'rules.json', 'allow.txt', 'app.json', 'app.json.sig'];
 
 function fetch($url) {
     $ctx = stream_context_create(['http' => ['timeout' => 120, 'user_agent' => 'TGuard-sync', 'ignore_errors' => true]]);
