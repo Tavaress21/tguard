@@ -108,19 +108,32 @@ public sealed class ScanEngine
         }
     }
 
+    /// <summary>
+    /// Weighs where a file came from. Scripts, shortcuts and disk images straight from the
+    /// Internet are rarely legitimate, so they count more than a downloaded installer.
+    /// </summary>
+    public void ApplyOrigin(ScanResult r, WebOrigin origin)
+    {
+        if (!origin.FromInternet) return;
+        var weight = r.Kind switch
+        {
+            FileKind.Script or FileKind.Lnk or FileKind.Iso or FileKind.Jar => 20,
+            FileKind.Pe or FileKind.Html => 10,
+            _ => r.Findings.Any(f => f.Score > 0) ? 10 : 0,
+        };
+        if (weight == 0) return;
+        var host = Uri.TryCreate(origin.HostUrl ?? origin.ReferrerUrl, UriKind.Absolute, out var u) ? u.Host : "?";
+        r.Findings.Add(new(weight, Loc.T("origin.internet", host), "origin"));
+        foreach (var url in new[] { origin.HostUrl, origin.ReferrerUrl }.Where(x => !string.IsNullOrEmpty(x)).Distinct())
+            foreach (var f in Urls.Analyze(url!))
+                if (!r.Findings.Any(x => x.Message == f.Message)) r.Findings.Add(f with { Source = "origin" });
+        Rescore(r, false);
+    }
+
     private void ApplyFileContext(ScanResult r, string path)
     {
-        var risky = r.Kind is FileKind.Pe or FileKind.Script or FileKind.Lnk or FileKind.Iso or FileKind.Html or FileKind.Jar
-                    || r.Findings.Any(f => f.Score > 0);
         var origin = FileContext.ReadWebOrigin(path);
-        if (origin is { FromInternet: true } && risky)
-        {
-            var host = Uri.TryCreate(origin.HostUrl ?? origin.ReferrerUrl, UriKind.Absolute, out var u) ? u.Host : "?";
-            r.Findings.Add(new(10, Loc.T("origin.internet", host), "origin"));
-            foreach (var url in new[] { origin.HostUrl, origin.ReferrerUrl }.Where(x => !string.IsNullOrEmpty(x)).Distinct())
-                foreach (var f in Urls.Analyze(url!))
-                    if (!r.Findings.Any(x => x.Message == f.Message)) r.Findings.Add(f with { Source = "origin" });
-        }
+        if (origin is not null) ApplyOrigin(r, origin);
 
         var trustedSigner = false;
         // signature checks are slow-ish, only do them when they can change the verdict

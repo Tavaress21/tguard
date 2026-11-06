@@ -228,6 +228,25 @@ internal static class EngineTests
         Assert.True(new UrlAnalyzer().Analyze(o.HostUrl!).Count > 0, "suspicious origin URL not flagged");
     }
 
+    [Test] static void DownloadOriginRaisesScore()
+    {
+        var e = new ScanEngine(new TGuardSettings(), new SignatureDatabase(), E.Rules) { UseWindowsContext = false };
+        var js = e.ScanBytes(Encoding.ASCII.GetBytes("var x = 1;"), "invoice.js");
+        Assert.Equal(Verdict.Clean, js.Verdict);
+        e.ApplyOrigin(js, TGuard.Core.Security.FileContext.ParseZoneIdentifier("ZoneId=3\nHostUrl=http://185.22.1.9/cgd/invoice.js"));
+        Assert.True(js.Verdict != Verdict.Clean, string.Join(" | ", js.AllReasons()));
+
+        // a normal document from a normal site stays clean
+        var txt = e.ScanBytes(Encoding.ASCII.GetBytes("meeting notes"), "notes.txt");
+        e.ApplyOrigin(txt, TGuard.Core.Security.FileContext.ParseZoneIdentifier("ZoneId=3\nHostUrl=https://www.google.com/x"));
+        Assert.Equal(Verdict.Clean, txt.Verdict);
+
+        // an installer from a legit site stays clean too
+        var exe = e.ScanBytes(File.ReadAllBytes(typeof(object).Assembly.Location), "setup.exe");
+        e.ApplyOrigin(exe, TGuard.Core.Security.FileContext.ParseZoneIdentifier("ZoneId=3\nHostUrl=https://github.com/x/releases/setup.exe"));
+        Assert.True(exe.Verdict != Verdict.Malicious);
+    }
+
     [Test] static void BlocklistMatchesUrlsAndHosts()
     {
         var bl = new UrlBlocklist();
