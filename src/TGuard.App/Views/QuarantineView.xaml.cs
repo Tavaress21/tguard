@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using TGuard.App.Services;
+using TGuard.Core.Online;
 
 namespace TGuard.App.Views;
 
@@ -44,6 +45,25 @@ public partial class QuarantineView : UserControl, IRefreshable
         try { await App.Backend.DeleteAsync((string)((Button)sender).Tag); }
         catch (Exception ex) { Dialog.Alert(S.T("error"), Friendly(ex), DialogKind.Danger); }
         await RefreshAsync();
+    }
+
+    private async void Report_Click(object sender, RoutedEventArgs e)
+    {
+        if (((Button)sender).Tag is not QuarantineRow row) return;
+        if (!Dialog.Confirm(S.T("q.report.title"), S.T("q.report.confirm"), S.T("q.report.send"))) return;
+        try
+        {
+            await App.Backend.ReportAsync(new ReportRequest
+            {
+                Type = "false_positive",
+                Value = row.Sha256,
+                FileName = row.Title,
+                Detection = row.Threat,
+                Details = row.Reasons,
+            });
+            Dialog.Alert(S.T("q.report.done.title"), S.T("q.report.done"), DialogKind.Success);
+        }
+        catch (Exception ex) { Dialog.Alert(S.T("error"), Friendly(ex), DialogKind.Danger); }
     }
 
     private async void Untrust_Click(object sender, RoutedEventArgs e)

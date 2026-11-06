@@ -175,7 +175,7 @@ int PublishFeeds(string[] a)
     var rulesFile = lists is null ? null : Path.Combine(lists, "rules.json");
     var rules = rulesFile is not null && File.Exists(rulesFile) ? File.ReadAllText(rulesFile) : null;
     Publisher.BuildFeedsAsync(a[0], key, Environment.GetEnvironmentVariable("ABUSECH_AUTH_KEY"),
-        Read("*.hashes.txt"), Read("*.urls.txt"), rules, log: Console.WriteLine).GetAwaiter().GetResult();
+        Read("*.hashes.txt"), Read("*.urls.txt"), rules, Read("*.allow.txt"), log: Console.WriteLine).GetAwaiter().GetResult();
     return 0;
 }
 

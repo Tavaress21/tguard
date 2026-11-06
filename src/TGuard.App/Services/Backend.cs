@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using TGuard.Core;
 using TGuard.Core.Engine;
 using TGuard.Core.Ipc;
+using TGuard.Core.Online;
 using TGuard.Core.Security;
 using TGuard.Core.Storage;
 
@@ -251,6 +252,37 @@ public sealed class Backend
             s.Save();
             _engine = new Lazy<ScanEngine>(() => ScanEngine.CreateDefault(s));
         }
+    }
+
+    public async Task<AccountStatus?> AccountAsync()
+    {
+        if (!ServiceAvailable) return null;
+        var r = await _client.SendAsync("account.status");
+        return r.Ok ? r.As<AccountStatus>() : null;
+    }
+
+    public async Task<LinkStart> StartLinkAsync() =>
+        (await Call("account.link.start")).As<LinkStart>() ?? throw new InvalidOperationException("no answer");
+
+    public async Task<(bool Linked, bool Expired, AccountStatus? Account)> PollLinkAsync(string secret)
+    {
+        var r = await Call("account.link.poll", new { secret });
+        return (r.Data?["linked"]?.GetValue<bool>() == true,
+                r.Data?["expired"]?.GetValue<bool>() == true,
+                r.Data?["account"]?.Deserialize<AccountStatus>(Protocol.Json));
+    }
+
+    public async Task<AccountStatus?> UnlinkAsync() => (await Call("account.unlink")).As<AccountStatus>();
+
+    public async Task<int> ReportAsync(ReportRequest report) =>
+        (await Call("report.send", report)).Data?["id"]?.GetValue<int>() ?? 0;
+
+    private async Task<Response> Call(string cmd, object? args = null)
+    {
+        if (!ServiceAvailable) throw new InvalidOperationException(S.T("service.required"));
+        var r = await new ServiceClient(3000).SendAsync(cmd, args);
+        if (!r.Ok) throw new InvalidOperationException(r.Error);
+        return r;
     }
 
     public void Stop() => _listen.Cancel();

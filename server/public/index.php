@@ -37,7 +37,7 @@ $size = isset($app['size']) ? number_format($app['size'] / 1048576, 1, ',', '') 
   <div class="bar"></div>
   <p class="lead">Antivírus gratuito e open-source para Windows, feito em Portugal. Trabalha em conjunto com o Microsoft Defender contra burlas, phishing, anexos maliciosos e ransomware.</p>
   <?php if ($file): ?>
-    <a class="btn" href="updates/<?= htmlspecialchars($file) ?>">Descarregar para Windows</a>
+    <a class="btn" href="https://luis-tavares.pt/tguard/descarregar">Descarregar para Windows</a>
     <div class="meta">Versão <?= htmlspecialchars($version) ?> · <?= $size ?> · Windows 10 e 11 (64 bits)</div>
   <?php else: ?>
     <p class="meta">A primeira versão estará disponível em breve.</p>
@@ -52,7 +52,7 @@ $size = isset($app['size']) ? number_format($app['size'] / 1048576, 1, ',', '') 
 
   <footer>
     O instalador ainda não tem certificado: se o Windows avisar, clica em "Mais informações" → "Executar mesmo assim".<br>
-    Código-fonte no <a href="https://github.com/Tavaress21/tguard">GitHub</a> · <a href="https://luis-tavares.pt">luis-tavares.pt</a>
+    <a href="https://luis-tavares.pt/tguard/denunciar">Denunciar uma burla</a> · <a href="https://luis-tavares.pt/area-cliente/tickets?novo=1&amp;assunto=TGuard">Pedir ajuda</a> · Código-fonte no <a href="https://github.com/Tavaress21/tguard">GitHub</a> · <a href="https://luis-tavares.pt">luis-tavares.pt</a>
   </footer>
 </main>
 </body>

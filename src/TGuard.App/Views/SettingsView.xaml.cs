@@ -4,7 +4,10 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32;
+using System.Diagnostics;
+using System.Threading;
 using TGuard.App.Services;
+using TGuard.Core.Online;
 using TGuard.Core.Storage;
 
 namespace TGuard.App.Views;
@@ -13,6 +16,9 @@ public partial class SettingsView : UserControl, IRefreshable
 {
     private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private TGuardSettings _settings = new();
+    private AccountStatus? _account;
+    private CancellationTokenSource? _linking;
+    private bool _linkCancelled;
 
     public SettingsView()
     {
@@ -43,7 +49,83 @@ public partial class SettingsView : UserControl, IRefreshable
         Folders.Text = string.Join(Environment.NewLine, _settings.WatchFolders);
         Exclusions.Text = string.Join(Environment.NewLine, _settings.Exclusions);
         Startup.IsChecked = IsInStartup();
+        UsageStats.IsChecked = _settings.UsageStats;
+        UsageStats.IsEnabled = App.Backend.ServiceAvailable;
         Saved.Text = "";
+        if (_linking is null) ShowAccount(await App.Backend.AccountAsync());
+    }
+
+    private void ShowAccount(AccountStatus? account)
+    {
+        _account = account;
+        var linked = account?.Linked == true;
+        AccountTitle.Text = linked ? S.F("acc.linked", account!.Email ?? account.Name ?? "") : S.T("acc.none");
+        AccountNote.Text = linked ? S.T("acc.linked.note") : S.T("acc.none.note");
+        LinkButton.Content = linked ? S.T("acc.unlink") : S.T("acc.link");
+        LinkButton.IsEnabled = App.Backend.ServiceAvailable;
+    }
+
+    private async void Link_Click(object sender, RoutedEventArgs e)
+    {
+        if (_linking is not null)
+        {
+            _linkCancelled = true;
+            _linking.Cancel();
+            return;
+        }
+        try
+        {
+            if (_account?.Linked == true)
+            {
+                if (!Dialog.Confirm(S.T("acc.unlink"), S.T("acc.unlink.confirm"), S.T("acc.unlink"))) return;
+                ShowAccount(await App.Backend.UnlinkAsync());
+                return;
+            }
+            await LinkAsync();
+        }
+        catch (Exception ex) { Dialog.Alert(S.T("error"), QuarantineView.Friendly(ex), DialogKind.Danger); }
+    }
+
+    private async Task LinkAsync()
+    {
+        var start = await App.Backend.StartLinkAsync();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(Math.Clamp(start.ExpiresIn, 60, 1800)));
+        _linking = cts;
+        _linkCancelled = false;
+        AccountTitle.Text = S.F("acc.waiting", start.Code);
+        AccountNote.Text = S.F("acc.waiting.note", start.Code, start.Url);
+        LinkButton.Content = S.T("acc.cancel");
+        Open(start.Url);
+        try
+        {
+            while (true)
+            {
+                await Task.Delay(3000, cts.Token);
+                var (linked, expired, account) = await App.Backend.PollLinkAsync(start.Secret);
+                if (linked)
+                {
+                    ShowAccount(account);
+                    return;
+                }
+                if (expired) break;
+            }
+        }
+        catch (OperationCanceledException) { }
+        finally { _linking = null; }
+        ShowAccount(await App.Backend.AccountAsync());
+        if (!_linkCancelled) AccountNote.Text = S.T("acc.expired");
+    }
+
+    private void Help_Click(object sender, RoutedEventArgs e) => Open(SiteClient.HelpUrl(_settings));
+
+    private void ReportScam_Click(object sender, RoutedEventArgs e) => Open(SiteClient.ReportUrl(_settings));
+
+    private void Site_Click(object sender, RoutedEventArgs e) => Open(SiteClient.AccountUrl(_settings));
+
+    private static void Open(string url)
+    {
+        try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException) { Dialog.Alert(S.T("error"), url, DialogKind.Danger); }
     }
 
     private async void Save_Click(object sender, RoutedEventArgs e)
@@ -62,6 +144,7 @@ public partial class SettingsView : UserControl, IRefreshable
         _settings.StartWithWindows = Startup.IsChecked == true;
         _settings.WatchFolders = Lines(Folders.Text);
         _settings.Exclusions = Lines(Exclusions.Text);
+        _settings.UsageStats = UsageStats.IsChecked == true;
         try
         {
             await App.Backend.SaveSettingsAsync(_settings);

@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using TGuard.Core.Ipc;
+using TGuard.Core.Online;
 using TGuard.Core.Security;
 using TGuard.Core.Storage;
 
@@ -78,7 +79,16 @@ public sealed class PipeServer : BackgroundService
     }
 
     private static readonly HashSet<string> Privileged = new()
-        { "settings.set", "quarantine.restore", "quarantine.delete", "scan.cancel", "trust.remove" };
+        { "settings.set", "quarantine.restore", "quarantine.delete", "scan.cancel", "trust.remove",
+          "account.link.start", "account.link.poll", "account.unlink", "report.send" };
+
+    private AccountStatus Account() => new()
+    {
+        Linked = !string.IsNullOrEmpty(_state.State.AccountToken),
+        Name = _state.State.AccountName,
+        Email = _state.State.AccountEmail,
+        UsageStats = _state.Settings.UsageStats,
+    };
 
     private async Task<Response> Handle(Request req)
     {
@@ -152,8 +162,47 @@ public sealed class PipeServer : BackgroundService
                 // changed by editing settings.json as an administrator
                 s.UpdateUrl = _state.Settings.UpdateUrl;
                 s.ExtraUpdateKeys = _state.Settings.ExtraUpdateKeys;
+                s.SiteUrl = _state.Settings.SiteUrl;
                 _state.UpdateSettings(s);
                 return Response.Success(s);
+
+            case "account.status":
+                return Response.Success(Account());
+            case "account.link.start":
+                return Response.Success(await new SiteClient(_state.Settings).StartLinkAsync(_state.State.EnsureInstallId()));
+            case "account.link.poll":
+            {
+                var poll = await new SiteClient(_state.Settings).PollLinkAsync(Arg("secret"));
+                if (poll.Linked && !string.IsNullOrEmpty(poll.Token))
+                {
+                    _state.State.AccountToken = poll.Token;
+                    _state.State.AccountName = poll.Account?.Name;
+                    _state.State.AccountEmail = poll.Account?.Email;
+                    _state.State.Save();
+                }
+                return Response.Success(new { poll.Linked, poll.Expired, account = Account() });
+            }
+            case "account.unlink":
+            {
+                var token = _state.State.AccountToken;
+                _state.State.AccountToken = null;
+                _state.State.AccountName = null;
+                _state.State.AccountEmail = null;
+                _state.State.Save();
+                if (!string.IsNullOrEmpty(token))
+                {
+                    try { await new SiteClient(_state.Settings).UnlinkAsync(token); }
+                    catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException) { _log.LogInformation("Unlink: {Error}", ex.Message); }
+                }
+                return Response.Success(Account());
+            }
+            case "report.send":
+            {
+                var report = req.Args?.Deserialize<ReportRequest>(Protocol.Json) ?? throw new ArgumentException("invalid report");
+                if (report.Type is not ("scam" or "malware" or "false_positive" or "other")) throw new ArgumentException("invalid report type");
+                var id = await new SiteClient(_state.Settings).ReportAsync(_state.State.EnsureInstallId(), _state.State.AccountToken, report);
+                return Response.Success(new { id });
+            }
 
             default:
                 return Response.Fail($"unknown command: {req.Cmd}");

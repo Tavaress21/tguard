@@ -1,6 +1,8 @@
 using System.Diagnostics;
+using System.Text.Json;
 using TGuard.Core;
 using TGuard.Core.Ipc;
+using TGuard.Core.Online;
 using TGuard.Core.Storage;
 
 namespace TGuard.Service;
@@ -54,11 +56,35 @@ public sealed class UpdateService : BackgroundService
             _log.LogInformation("Update: sources={Sources} signatures+={Sigs} urls+={Urls} errors={Errors}",
                 string.Join(",", report.Sources), report.SignaturesAdded, report.UrlsAdded, string.Join(" | ", report.Errors));
 
+            await PingAsync(ct);
             if (installAppUpdate && !string.IsNullOrWhiteSpace(_state.Settings.UpdateUrl))
                 await CheckAppUpdateAsync(report, ct);
             return report;
         }
         finally { _gate.Release(); }
+    }
+
+    private async Task PingAsync(CancellationToken ct)
+    {
+        var st = _state.State;
+        if (!_state.Settings.UsageStats || (st.LastPing is not null && DateTimeOffset.Now - st.LastPing < TimeSpan.FromHours(20))) return;
+        try
+        {
+            var result = await new SiteClient(_state.Settings).PingAsync(st.EnsureInstallId(), st.AccountToken, _state.Engine.Signatures.Count, ct);
+            st.LastPing = DateTimeOffset.Now;
+            if (result.AccountRevoked)
+            {
+                st.AccountToken = null;
+                st.AccountName = null;
+                st.AccountEmail = null;
+            }
+            else if (result.AccountName is not null) st.AccountName = result.AccountName;
+            st.Save();
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or UriFormatException)
+        {
+            _log.LogInformation("Ping failed: {Error}", ex.Message);
+        }
     }
 
     private async Task CheckAppUpdateAsync(UpdateReport report, CancellationToken ct)

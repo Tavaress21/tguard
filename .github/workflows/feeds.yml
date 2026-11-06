@@ -37,6 +37,17 @@ jobs:
           if git fetch -q origin updates; then git archive origin/updates | tar -x -C out; fi
           ls -la out
 
+      - name: Get the lists managed on luis-tavares.pt
+        if: steps.key.outputs.ok == 'true'
+        run: |
+          for kind in urls hashes allow; do
+            if curl -fsS --max-time 60 "https://luis-tavares.pt/tguard/listas/$kind.txt" -o "server/lists/site.$kind.txt"; then
+              echo "$kind: $(grep -vc '^#' "server/lists/site.$kind.txt" || true)"
+            else
+              rm -f "server/lists/site.$kind.txt"
+            fi
+          done
+
       - name: Build and sign lists
         if: steps.key.outputs.ok == 'true'
         env:

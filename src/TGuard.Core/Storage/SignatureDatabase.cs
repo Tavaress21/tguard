@@ -6,24 +6,58 @@ namespace TGuard.Core.Storage;
 public sealed class SignatureDatabase
 {
     private readonly Dictionary<string, string> _hashes = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _allowed = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _lock = new();
     private readonly string? _path;
+    private readonly string? _allowPath;
 
     // EICAR test file (harmless industry-standard AV test)
     public const string EicarSha256 = "275a021bbfb6489e54d471899f7db9d1663fc695ec2fe2a2c4538aabf651fd0f";
 
-    public SignatureDatabase(string? path = null)
+    public SignatureDatabase(string? path = null, string? allowPath = null)
     {
         _path = path;
+        _allowPath = allowPath;
         _hashes[EicarSha256] = "EICAR-Test-File";
         if (path is not null && File.Exists(path)) LoadFile(path);
+        if (allowPath is not null && File.Exists(allowPath))
+            foreach (var line in File.ReadLines(allowPath))
+                if (line.Trim() is { Length: 64 } h && IsHex(h)) _allowed.Add(h.ToLowerInvariant());
     }
 
     public int Count { get { lock (_lock) return _hashes.Count; } }
 
+    public int AllowedCount { get { lock (_lock) return _allowed.Count; } }
+
     public string? Lookup(string sha256)
     {
-        lock (_lock) return _hashes.TryGetValue(sha256, out var n) ? n : null;
+        lock (_lock) return !_allowed.Contains(sha256) && _hashes.TryGetValue(sha256, out var n) ? n : null;
+    }
+
+    public bool IsAllowed(string sha256)
+    {
+        lock (_lock) return _allowed.Contains(sha256) && !sha256.Equals(EicarSha256, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public int Allow(IEnumerable<string> hashes)
+    {
+        lock (_lock)
+        {
+            int added = 0;
+            foreach (var raw in hashes)
+            {
+                var h = raw.Trim();
+                if (h.Length == 64 && IsHex(h) && !h.Equals(EicarSha256, StringComparison.OrdinalIgnoreCase) && _allowed.Add(h.ToLowerInvariant())) added++;
+            }
+            if (added > 0 && _allowPath is not null)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(_allowPath)!);
+                var tmp = _allowPath + ".tmp";
+                File.WriteAllLines(tmp, _allowed);
+                File.Move(tmp, _allowPath, true);
+            }
+            return added;
+        }
     }
 
     public int AddRange(IEnumerable<(string Hash, string Name)> items, bool persist = true)

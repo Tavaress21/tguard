@@ -9,6 +9,21 @@ public sealed class AppState
     public DateOnly? LastScheduledScan { get; set; }
     public DateTimeOffset? LastUpdate { get; set; }
     public DateTimeOffset? LastUpdateAttempt { get; set; }
+    public string InstallId { get; set; } = "";
+    public string? AccountToken { get; set; }
+    public string? AccountName { get; set; }
+    public string? AccountEmail { get; set; }
+    public DateTimeOffset? LastPing { get; set; }
+
+    public string EnsureInstallId()
+    {
+        if (!Guid.TryParse(InstallId, out _))
+        {
+            InstallId = Guid.NewGuid().ToString();
+            Save();
+        }
+        return InstallId;
+    }
 
     private static string PathOf => System.IO.Path.Combine(TGuardPaths.Root, "state.json");
     private static readonly object Lock = new();

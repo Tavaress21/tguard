@@ -13,6 +13,7 @@ public static class TGuardPaths
     public static string Settings => Path.Combine(Root, "settings.json");
     public static string Signatures => Path.Combine(Root, "signatures.db");
     public static string UrlBlocklist => Path.Combine(Root, "urls.db");
+    public static string Allowlist => Path.Combine(Root, "allow.db");
     public static string QuarantineDir => Path.Combine(Root, "Quarantine");
     public static string Events => Path.Combine(Root, "events.jsonl");
     public static string UserRules => Path.Combine(Root, "Rules");
@@ -65,6 +66,10 @@ public sealed class TGuardSettings
 
     // community sharing (anonymous, off by default)
     public bool CommunitySharing { get; set; } = false;
+
+    // luis-tavares.pt: anonymous daily statistics, account link, reports and help
+    public string SiteUrl { get; set; } = "https://luis-tavares.pt/";
+    public bool UsageStats { get; set; } = true;
 
     private static readonly JsonSerializerOptions Json = new()
     {

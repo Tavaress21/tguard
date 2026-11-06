@@ -4,6 +4,7 @@ using System.Text;
 using TGuard.Core;
 using TGuard.Core.Analyzers;
 using TGuard.Core.Engine;
+using TGuard.Core.Online;
 using TGuard.Core.Rules;
 using TGuard.Core.Storage;
 using TGuard.Core.Web;
@@ -398,6 +399,56 @@ internal static class UpdateTests
         Assert.True(new UrlBlocklist(TGuardPaths.UrlBlocklist).Contains("http://phish.example/login"), "not persisted");
         File.Delete(Path.Combine(TGuardPaths.UserRules, "tguard-update.json"));
         e.ReloadRules();
+    }
+
+    [Test] static void SafeFilesFromFeedsOverrideSignatures()
+    {
+        var data = Encoding.ASCII.GetBytes("a perfectly normal file that someone reported by mistake");
+        var sha = SignatureDatabase.Sha256Hex(data);
+        var dir = Path.Combine(TGuardPaths.Root, "server-allow");
+        Publisher.BuildFeedsAsync(dir, Key("test-feeds.key.pem"), null, new[] { $"{sha};Wrong.Detection" }, Array.Empty<string>(), null,
+            new[] { $"# safe\n{sha}\n{SignatureDatabase.EicarSha256}\nnot-a-hash\n" }).GetAwaiter().GetResult();
+        Assert.True(!File.ReadAllText(Path.Combine(dir, "signatures.txt")).Contains(sha), "allowed hash still published as malware");
+
+        var settings = new TGuardSettings { UpdateUrl = "https://tguard.example/updates/", ExtraUpdateKeys = new() { Key("test-feeds.pub.pem") } };
+        var e = ScanEngine.CreateDefault(settings);
+        e.UseWindowsContext = false;
+        e.Signatures.AddRange(new[] { (sha, "Old.Detection") });
+        Assert.Equal(Verdict.Malicious, e.ScanBytes(data, "report.pdf").Verdict);
+
+        var rep = new Updater(new FakeHttp(Serve(dir, "https://tguard.example/updates/"), binary: true)).RunAsync(e, settings).GetAwaiter().GetResult();
+        Assert.Equal(0, rep.Errors.Count, string.Join(" | ", rep.Errors));
+        Assert.Equal(1, rep.SafeFilesAdded);
+        Assert.Equal(null, e.Signatures.Lookup(sha));
+        Assert.Equal(Verdict.Clean, e.ScanBytes(data, "report.pdf").Verdict);
+        Assert.Equal(Verdict.Malicious, e.ScanBytes(Samples.Eicar(), "eicar.com").Verdict);
+        Assert.True(new SignatureDatabase(TGuardPaths.Signatures, TGuardPaths.Allowlist).IsAllowed(sha), "allow list not persisted");
+    }
+
+    [Test] static void SiteClientTalksToTheSite()
+    {
+        var site = "https://site.example/";
+        var http = new FakeHttp(new()
+        {
+            [site + "api/tguard/ping"] = "{\"ok\":true,\"account\":false}",
+            [site + "api/tguard/ligar"] = "{\"ok\":true,\"code\":\"ABCD-EFGH\",\"secret\":\"s3cret\",\"url\":\"https://site.example/tguard/ligar?codigo=ABCD-EFGH\",\"expires_in\":900}",
+            [site + "api/tguard/ligar/estado"] = "{\"ok\":true,\"linked\":true,\"token\":\"tok\",\"account\":{\"name\":\"Ana\",\"email\":\"an••@x.pt\"}}",
+            [site + "api/tguard/denuncia"] = "{\"ok\":true,\"id\":42}",
+        });
+        var settings = new TGuardSettings { SiteUrl = site };
+        var c = new SiteClient(settings, http);
+        Assert.True(c.PingAsync(Guid.NewGuid().ToString(), "old", 10).GetAwaiter().GetResult().AccountRevoked, "revoked account not detected");
+        var start = c.StartLinkAsync(Guid.NewGuid().ToString()).GetAwaiter().GetResult();
+        Assert.Equal("ABCD-EFGH", start.Code);
+        Assert.Equal(900, start.ExpiresIn);
+        var poll = c.PollLinkAsync(start.Secret).GetAwaiter().GetResult();
+        Assert.True(poll.Linked && poll.Token == "tok" && poll.Account?.Name == "Ana", "link answer not read");
+        Assert.Equal(42, c.ReportAsync(Guid.NewGuid().ToString(), null, new ReportRequest { Type = "scam", Value = "https://x" }).GetAwaiter().GetResult());
+        Assert.True(SiteClient.HelpUrl(settings).StartsWith(site + "area-cliente/tickets?novo=1&assunto=TGuard"), SiteClient.HelpUrl(settings));
+
+        var threw = false;
+        try { new SiteClient(new TGuardSettings { SiteUrl = "http://site.example/" }); } catch (UriFormatException) { threw = true; }
+        Assert.True(threw, "plain http site accepted");
     }
 
     [Test] static void TamperedFeedsAreRejected()

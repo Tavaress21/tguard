@@ -103,6 +103,7 @@ public sealed class QuarantineRow
     public QuarantineRow(QuarantineItem q)
     {
         Id = q.Id;
+        Sha256 = q.Sha256;
         Title = System.IO.Path.GetFileName(q.OriginalPath);
         Path = q.OriginalPath;
         Threat = q.Threat;
@@ -112,6 +113,7 @@ public sealed class QuarantineRow
     }
 
     public string Id { get; }
+    public string Sha256 { get; }
     public string Title { get; }
     public string Path { get; }
     public string Threat { get; }

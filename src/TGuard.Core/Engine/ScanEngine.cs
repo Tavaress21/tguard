@@ -43,7 +43,7 @@ public sealed class ScanEngine
     }
 
     public static ScanEngine CreateDefault(TGuardSettings? settings = null) =>
-        new(settings ?? TGuardSettings.Load(), new SignatureDatabase(TGuardPaths.Signatures),
+        new(settings ?? TGuardSettings.Load(), new SignatureDatabase(TGuardPaths.Signatures, TGuardPaths.Allowlist),
             RuleEngine.LoadDefault(new[] { TGuardPaths.UserRules }), new TrustStore(), new UrlBlocklist(TGuardPaths.UrlBlocklist));
 
     public void InvalidateCache() => _cache.Clear();
@@ -92,7 +92,7 @@ public sealed class ScanEngine
                 Verdict = res.Verdict, ThreatName = res.ThreatName,
             }.WithFindings(res);
 
-            if (!Trust.IsTrusted(result.Sha256) && UseWindowsContext) ApplyFileContext(result, path);
+            if (!Trust.IsTrusted(result.Sha256) && !Signatures.IsAllowed(result.Sha256) && UseWindowsContext) ApplyFileContext(result, path);
 
             if (!fromEmail)
             {
@@ -183,6 +183,13 @@ public sealed class ScanEngine
         {
             r.Kind = FileTypeDetector.Detect(data, name);
             r.Findings.Add(new(0, Loc.T("trust.file"), "trusted"));
+            return r;
+        }
+
+        if (Signatures.IsAllowed(r.Sha256))
+        {
+            r.Kind = FileTypeDetector.Detect(data, name);
+            r.Findings.Add(new(0, Loc.T("allow.file"), "allowed"));
             return r;
         }
 

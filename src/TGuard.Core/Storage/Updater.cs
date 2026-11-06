@@ -13,6 +13,7 @@ public sealed class UpdateReport
     public int SignaturesAdded { get; set; }
     public int UrlsAdded { get; set; }
     public int RulesLoaded { get; set; }
+    public int SafeFilesAdded { get; set; }
     public List<string> Sources { get; set; } = new();
     public List<string> Errors { get; set; } = new();
     public List<string> Notes { get; set; } = new();
@@ -63,6 +64,7 @@ public sealed class Updater
                 if (await Fetch(manifest.Signatures) is string sigs) report.SignaturesAdded += AddHashes(engine, sigs, "TGuard");
                 if (await Fetch(manifest.Urls) is string urls) report.UrlsAdded += AddUrls(engine, urls);
                 if (await Fetch(manifest.Rules) is string rules) report.RulesLoaded += InstallRules(engine, rules);
+                if (await Fetch(manifest.Allow) is string allow) report.SafeFilesAdded += AddAllowed(engine, allow);
                 report.Sources.Add("TGuard");
             }
             catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or UriFormatException or FormatException or ArgumentException or InvalidDataException)
@@ -97,7 +99,7 @@ public sealed class Updater
         }
 
         if (report.UrlsAdded > 0) engine.Blocklist.Save(TGuardPaths.UrlBlocklist);
-        if (report.SignaturesAdded > 0 || report.UrlsAdded > 0 || report.RulesLoaded > 0) engine.InvalidateCache();
+        if (report.SignaturesAdded > 0 || report.UrlsAdded > 0 || report.RulesLoaded > 0 || report.SafeFilesAdded > 0) engine.InvalidateCache();
         return report;
     }
 
@@ -161,6 +163,9 @@ public sealed class Updater
         return engine.Signatures.AddRange(items);
     }
 
+    public static int AddAllowed(ScanEngine engine, string text) =>
+        engine.Signatures.Allow(text.Split('\n').Select(l => l.Trim()).Where(l => l.Length == 64 && l[0] != '#'));
+
     public static int AddUrlhausJson(ScanEngine engine, string json)
     {
         using var doc = JsonDocument.Parse(json);
@@ -207,5 +212,6 @@ public sealed class Updater
         public FeedFile? Signatures { get; set; }
         public FeedFile? Urls { get; set; }
         public FeedFile? Rules { get; set; }
+        public FeedFile? Allow { get; set; }
     }
 }

@@ -21,7 +21,7 @@ public static class Publisher
     public static async Task<Updater.FeedsManifest> BuildFeedsAsync(
         string outDir, string feedsKeyPem, string? abuseChKey,
         IEnumerable<string> ownHashLists, IEnumerable<string> ownUrlLists, string? rulesJson,
-        HttpMessageHandler? handler = null, Action<string>? log = null, CancellationToken ct = default)
+        IEnumerable<string>? ownAllowLists = null, HttpMessageHandler? handler = null, Action<string>? log = null, CancellationToken ct = default)
     {
         log ??= _ => { };
         Directory.CreateDirectory(outDir);
@@ -90,6 +90,12 @@ public static class Publisher
         }
         else log("abuse.ch: no key, only TGuard lists published");
 
+        var allowed = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (var list in ownAllowLists ?? Enumerable.Empty<string>())
+            foreach (var line in list.Split('\n').Select(l => l.Trim().ToLowerInvariant()))
+                if (line.Length == 64 && line.All(Uri.IsHexDigit) && line != SignatureDatabase.EicarSha256) allowed.Add(line);
+        foreach (var h in allowed) hashes.Remove(h);
+
         var sigLines = hashes.Skip(Math.Max(0, hashes.Count - MaxSignatures)).Select(kv => $"{kv.Key};{kv.Value}");
         var urlLines = urls.Skip(Math.Max(0, urls.Count - MaxUrls));
         await File.WriteAllLinesAsync(sigPath, new[] { "# TGuard signatures (sha256;name)" }.Concat(sigLines), ct);
@@ -101,6 +107,13 @@ public static class Publisher
             Signatures = FileEntry(sigPath),
             Urls = FileEntry(urlPath),
         };
+        var allowPath = Path.Combine(outDir, "allow.txt");
+        if (allowed.Count > 0)
+        {
+            await File.WriteAllLinesAsync(allowPath, new[] { "# TGuard safe files (sha256)" }.Concat(allowed), ct);
+            manifest.Allow = FileEntry(allowPath);
+        }
+        else if (File.Exists(allowPath)) File.Delete(allowPath);
         if (!string.IsNullOrWhiteSpace(rulesJson))
         {
             // refuse to publish rules that don't compile
@@ -110,7 +123,7 @@ public static class Publisher
             manifest.Rules = FileEntry(rulesPath);
         }
         WriteSigned(Path.Combine(outDir, "feeds.json"), JsonSerializer.SerializeToUtf8Bytes(manifest, Json), feedsKeyPem);
-        log($"feeds.json: {hashes.Count} signatures, {urls.Count} urls");
+        log($"feeds.json: {hashes.Count} signatures, {urls.Count} urls, {allowed.Count} safe files");
         return manifest;
     }
 

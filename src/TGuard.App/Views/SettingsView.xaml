@@ -64,6 +64,27 @@
                 </StackPanel>
             </Border>
 
+            <TextBlock Text="{s:Tr set.section.account}" Style="{StaticResource Caption}" Margin="4,22,0,8" />
+            <Border Style="{StaticResource CardBorder}" Padding="22,6">
+                <StackPanel>
+                    <DockPanel Margin="0,14">
+                        <Button x:Name="LinkButton" DockPanel.Dock="Right" Style="{StaticResource SecondaryButton}" Content="{s:Tr acc.link}" Click="Link_Click" VerticalAlignment="Center" Margin="16,0,0,0" />
+                        <StackPanel>
+                            <TextBlock x:Name="AccountTitle" Text="{s:Tr acc.none}" Style="{StaticResource Label}" FontFamily="{StaticResource Body}" />
+                            <TextBlock x:Name="AccountNote" Text="{s:Tr acc.none.note}" Style="{StaticResource Small}" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </DockPanel>
+                    <Border Height="1" Background="{StaticResource Line}" />
+                    <CheckBox x:Name="UsageStats" Style="{StaticResource Switch}" Content="{s:Tr acc.stats}" Margin="0,12" />
+                    <Border Height="1" Background="{StaticResource Line}" />
+                    <WrapPanel Margin="0,14">
+                        <Button Style="{StaticResource SmallButton}" Content="{s:Tr acc.help}" Click="Help_Click" Margin="0,0,8,0" />
+                        <Button Style="{StaticResource SmallButton}" Content="{s:Tr acc.report}" Click="ReportScam_Click" Margin="0,0,8,0" />
+                        <Button Style="{StaticResource SmallButton}" Content="{s:Tr acc.site}" Click="Site_Click" />
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+
             <!-- Folders -->
             <TextBlock Text="{s:Tr set.section.folders}" Style="{StaticResource Caption}" Margin="4,22,0,8" />
             <Border Style="{StaticResource CardBorder}">
