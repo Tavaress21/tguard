@@ -110,7 +110,10 @@ try {
     if (-not (Test-Path -LiteralPath $canary)) { throw 'Ransomware decoy file was not created.' }
     $attr = (Get-Item -LiteralPath $canary -Force).Attributes
     if (-not ($attr -band [IO.FileAttributes]::Hidden)) { throw 'Ransomware decoy file is not hidden.' }
-    [IO.File]::WriteAllBytes($canary, [byte[]](1..200))
+    $fs = [IO.File]::Open($canary, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite)
+    $fs.SetLength(0)
+    $fs.Write([byte[]](1..200), 0, 200)
+    $fs.Dispose()
     $rw = $null
     for ($i = 0; $i -lt 15 -and -not $rw; $i++) {
         Start-Sleep -Seconds 1
