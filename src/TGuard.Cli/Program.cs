@@ -25,6 +25,7 @@ if (args.Length == 0 || args[0] is "-h" or "--help" or "help")
           tguard quarantine list | restore <id> | delete <id>
           tguard check          PC security check
           tguard update         download the latest signatures
+          tguard signature <file>   show Authenticode status
           tguard info
           (--pt for Portuguese output)
         """);
@@ -38,6 +39,7 @@ return args[0] switch
     "check" or "verificar-pc" => Check(),
     "update" or "atualizar" => Update(),
     "info" => Info(),
+    "signature" => Signature(args.Skip(1).FirstOrDefault()),
     _ => Unknown(args[0]),
 };
 
@@ -145,6 +147,16 @@ int Update()
     foreach (var e in rep.Errors) Console.WriteLine($"  ! {e}");
     if (rep.Success) { var st = AppState.Load(); st.LastUpdate = DateTimeOffset.Now; st.Save(); }
     return rep.Success ? 0 : 1;
+}
+
+int Signature(string? file)
+{
+    if (file is null || !File.Exists(file)) { Console.Error.WriteLine("File not found."); return 2; }
+    var sig = FileContext.VerifySignature(file);
+    Console.WriteLine($"{sig.State}{(sig.Signer is null ? "" : $" ({sig.Signer})")}");
+    var origin = FileContext.ReadWebOrigin(file);
+    if (origin is not null) Console.WriteLine($"Zone {origin.ZoneId}, from {origin.HostUrl ?? origin.ReferrerUrl ?? "?"}");
+    return 0;
 }
 
 int Info()
