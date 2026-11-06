@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- TGuard desktop app (WPF) with tray icon. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AssemblyName>TGuard</AssemblyName>
+    <RootNamespace>TGuard.App</RootNamespace>
+    <ApplicationIcon>Assets\tguard.ico</ApplicationIcon>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+  </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="Assets\Fonts\*.ttf" />
+    <Resource Include="Assets\logo-256.png" />
+    <Resource Include="Assets\tguard.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\TGuard.Core\TGuard.Core.csproj" />
+  </ItemGroup>
+</Project>

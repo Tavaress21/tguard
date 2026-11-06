@@ -1,0 +1,73 @@
+<UserControl x:Class="TGuard.App.Views.SettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:s="clr-namespace:TGuard.App.Services">
+    <ScrollViewer>
+        <StackPanel Margin="36,32,36,32" MaxWidth="860" HorizontalAlignment="Left">
+            <DockPanel Margin="0,0,0,22">
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock x:Name="Saved" Style="{StaticResource Label}" Foreground="{StaticResource Good}" VerticalAlignment="Center" Margin="0,0,14,0" />
+                    <Button Style="{StaticResource PrimaryButton}" Content="{s:Tr set.save}" Click="Save_Click" />
+                </StackPanel>
+                <TextBlock Text="{s:Tr set.title}" Style="{StaticResource PageTitle}" VerticalAlignment="Center" />
+            </DockPanel>
+
+            <!-- Protection -->
+            <TextBlock Text="{s:Tr set.section.protection}" Style="{StaticResource Caption}" Margin="4,0,0,8" />
+            <Border Style="{StaticResource CardBorder}" Padding="22,6">
+                <StackPanel>
+                    <CheckBox x:Name="Realtime" Style="{StaticResource Switch}" Content="{s:Tr set.realtime}" Margin="0,12" />
+                    <Border Height="1" Background="{StaticResource Line}" />
+                    <CheckBox x:Name="ProcessGuard" Style="{StaticResource Switch}" Content="{s:Tr set.processguard}" Margin="0,12" />
+                    <Border Height="1" Background="{StaticResource Line}" />
+                    <CheckBox x:Name="UsbScan" Style="{StaticResource Switch}" Content="{s:Tr set.usb}" Margin="0,12" />
+                    <Border Height="1" Background="{StaticResource Line}" />
+                    <CheckBox x:Name="AutoQuarantine" Style="{StaticResource Switch}" Content="{s:Tr set.autoq}" Margin="0,12" />
+                    <Border Height="1" Background="{StaticResource Line}" />
+                    <CheckBox x:Name="AutoUpdate" Style="{StaticResource Switch}" Content="{s:Tr set.autoupdate}" Margin="0,12" />
+                    <Border Height="1" Background="{StaticResource Line}" />
+                    <DockPanel Margin="0,12">
+                        <ComboBox x:Name="Hour" DockPanel.Dock="Right" Width="90" Margin="16,0,0,0" VerticalAlignment="Center" />
+                        <CheckBox x:Name="Scheduled" Style="{StaticResource Switch}" Content="{s:Tr set.scheduled}" />
+                    </DockPanel>
+                    <Border Height="1" Background="{StaticResource Line}" />
+                    <CheckBox x:Name="Community" Style="{StaticResource Switch}" Content="{s:Tr set.community}" Margin="0,12" IsEnabled="False" />
+                </StackPanel>
+            </Border>
+
+            <!-- General -->
+            <TextBlock Text="{s:Tr set.section.general}" Style="{StaticResource Caption}" Margin="4,22,0,8" />
+            <Border Style="{StaticResource CardBorder}" Padding="22,6">
+                <StackPanel>
+                    <DockPanel Margin="0,12">
+                        <ComboBox x:Name="LanguageBox" DockPanel.Dock="Right" Width="200" VerticalAlignment="Center">
+                            <ComboBoxItem Tag="pt" Content="Português (Portugal)" />
+                            <ComboBoxItem Tag="en" Content="English" />
+                        </ComboBox>
+                        <StackPanel>
+                            <TextBlock Text="{s:Tr set.language}" Style="{StaticResource Label}" FontFamily="{StaticResource Body}" />
+                            <TextBlock Text="{s:Tr set.language.note}" Style="{StaticResource Small}" />
+                        </StackPanel>
+                    </DockPanel>
+                    <Border Height="1" Background="{StaticResource Line}" />
+                    <CheckBox x:Name="Notifications" Style="{StaticResource Switch}" Content="{s:Tr set.notify}" Margin="0,12" />
+                    <Border Height="1" Background="{StaticResource Line}" />
+                    <CheckBox x:Name="Startup" Style="{StaticResource Switch}" Content="{s:Tr set.startup}" Margin="0,12" />
+                </StackPanel>
+            </Border>
+
+            <!-- Folders -->
+            <TextBlock Text="{s:Tr set.section.folders}" Style="{StaticResource Caption}" Margin="4,22,0,8" />
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel>
+                    <TextBlock Text="{s:Tr set.folders}" Style="{StaticResource Label}" Margin="0,0,0,8" />
+                    <TextBox x:Name="Folders" AcceptsReturn="True" MinHeight="96" TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto" />
+                    <TextBlock Text="{s:Tr set.exclusions}" Style="{StaticResource Label}" Margin="0,18,0,8" />
+                    <TextBox x:Name="Exclusions" AcceptsReturn="True" MinHeight="72" TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto" />
+                </StackPanel>
+            </Border>
+
+            <TextBlock x:Name="About" Style="{StaticResource Small}" Margin="4,22,0,0" />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

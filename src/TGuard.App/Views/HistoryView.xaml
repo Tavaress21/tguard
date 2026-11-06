@@ -1,0 +1,50 @@
+<UserControl x:Class="TGuard.App.Views.HistoryView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:s="clr-namespace:TGuard.App.Services">
+    <ScrollViewer>
+        <StackPanel Margin="36,32,36,32">
+            <TextBlock Text="{s:Tr hist.title}" Style="{StaticResource PageTitle}" />
+            <TextBlock Text="{s:Tr hist.sub}" Style="{StaticResource PageSubtitle}" Margin="0,4,0,22" />
+
+            <Border Style="{StaticResource CardBorder}" Padding="22,10">
+                <StackPanel>
+                    <TextBlock x:Name="Empty" Text="{s:Tr hist.empty}" Style="{StaticResource Lead}" Margin="0,24" HorizontalAlignment="Center" />
+                    <ItemsControl x:Name="Items">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Padding="0,14">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Border Width="38" Height="38" CornerRadius="10" Background="{Binding PillBackground}" Margin="0,0,14,0" VerticalAlignment="Top">
+                                            <TextBlock Text="{Binding Glyph}" Style="{StaticResource Icon}" FontSize="16" Foreground="{Binding PillForeground}" />
+                                        </Border>
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Text="{Binding Title}" Style="{StaticResource Label}" />
+                                            <TextBlock Text="{Binding Subtitle}" Style="{StaticResource Small}" FontSize="13" />
+                                            <TextBlock Text="{Binding Path}" Style="{StaticResource Small}" FontFamily="Consolas" FontSize="11.5" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap" Margin="0,2,0,0" />
+                                            <Expander Header="{s:Tr details}" FontFamily="{StaticResource BodySemi}" FontSize="12" Foreground="{StaticResource Royal}" Margin="0,6,0,0">
+                                                <TextBlock Text="{Binding Reasons}" Style="{StaticResource Small}" Margin="0,6,0,0" />
+                                            </Expander>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2" Margin="14,0,0,0">
+                                            <Border Style="{StaticResource Pill}" Background="{Binding PillBackground}" HorizontalAlignment="Right">
+                                                <TextBlock Text="{Binding VerdictLabel}" Style="{StaticResource PillText}" Foreground="{Binding PillForeground}" />
+                                            </Border>
+                                            <TextBlock Text="{Binding When}" Style="{StaticResource Small}" FontSize="11.5" HorizontalAlignment="Right" Margin="0,4,0,0" />
+                                            <TextBlock Text="{Binding Source}" Style="{StaticResource Small}" FontSize="11.5" HorizontalAlignment="Right" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -1,0 +1,568 @@
+[
+  {
+    "name": "PowerShell_EncodedCommand",
+    "description_en": "PowerShell with Base64-encoded command and/or hidden window",
+    "description_pt": "PowerShell com comando codificado em Base64 e/ou janela escondida",
+    "score": 55,
+    "strings": {
+      "ps": {
+        "regex": "powershell(\\.exe)?",
+        "nocase": true
+      },
+      "enc": {
+        "regex": "\\s-e(nc(odedcommand)?)?\\s+[A-Za-z0-9+/=]{40,}",
+        "nocase": true
+      },
+      "hidden": {
+        "regex": "-w(indowstyle)?\\s+h(idden)?\\b",
+        "nocase": true
+      },
+      "bypass": {
+        "regex": "-(ep|ex(ecutionpolicy)?)\\s+bypass",
+        "nocase": true
+      }
+    },
+    "condition": "ps and (enc or (hidden and bypass))",
+    "filetypes": [
+      "any"
+    ]
+  },
+  {
+    "name": "Download_And_Execute",
+    "description_en": "Download-and-execute pattern (download cradle)",
+    "description_pt": "Padrão de descarregar e executar código (download cradle)",
+    "score": 60,
+    "strings": {
+      "iex": {
+        "regex": "(\\b(iex|invoke-expression)\\s*[\\(\\$]|\\|\\s*iex\\b)",
+        "nocase": true
+      },
+      "dl": {
+        "regex": "\\.download(string|file|data)\\s*\\(|invoke-webrequest|\\biwr\\s+-?u|start-bitstransfer|invoke-restmethod",
+        "nocase": true
+      },
+      "chain": {
+        "regex": "(net\\.webclient|msxml2\\.xmlhttp|winhttp\\.winhttprequest)[\\s\\S]{0,400}(downloadstring|downloadfile|responsebody|\\.send)[\\s\\S]{0,400}(start-process|\\.run\\s*[\\(\"']|shellexecute|\\.exec\\s*\\(|savetofile)",
+        "nocase": true
+      }
+    },
+    "condition": "(iex and dl) or chain",
+    "filetypes": [
+      "script",
+      "office",
+      "lnk",
+      "html",
+      "pdf",
+      "any"
+    ]
+  },
+  {
+    "name": "LOLBin_Abuse",
+    "description_en": "Abuse of legitimate Windows binaries to run remote code",
+    "description_pt": "Uso de binários legítimos do Windows para executar código remoto",
+    "score": 50,
+    "strings": {
+      "mshta": {
+        "regex": "mshta(\\.exe)?\\s+(https?:|vbscript:|javascript:)",
+        "nocase": true
+      },
+      "regsvr": {
+        "regex": "regsvr32(\\.exe)?\\s+/s\\s+/n\\s+/u\\s+/i:",
+        "nocase": true
+      },
+      "certutil": {
+        "regex": "certutil(\\.exe)?\\s+.*-(urlcache|decode)",
+        "nocase": true
+      },
+      "rundll": {
+        "regex": "rundll32(\\.exe)?\\s+javascript:",
+        "nocase": true
+      },
+      "bitsadmin": {
+        "regex": "bitsadmin(\\.exe)?\\s+/transfer",
+        "nocase": true
+      }
+    },
+    "condition": "any",
+    "filetypes": [
+      "any"
+    ]
+  },
+  {
+    "name": "Macro_AutoExec_Dangerous",
+    "description_en": "Auto-running VBA macro that executes commands",
+    "description_pt": "Macro VBA que corre automaticamente e executa comandos",
+    "score": 65,
+    "strings": {
+      "auto": {
+        "regex": "auto_?open|document_open|workbook_open|autoexec|auto_close",
+        "nocase": true
+      },
+      "shell": {
+        "regex": "\\bshell\\s*\\(|wscript\\.shell|createobject|shellexecute|\\.exec\\b",
+        "nocase": true
+      },
+      "dl": {
+        "regex": "urldownloadtofile|xmlhttp|adodb\\.stream",
+        "nocase": true
+      }
+    },
+    "condition": "auto and (shell or dl)",
+    "filetypes": [
+      "office"
+    ]
+  },
+  {
+    "name": "Ransomware_Shadow_Copy_Deletion",
+    "description_en": "Deletes shadow copies / disables recovery (typical ransomware)",
+    "description_pt": "Apagar cópias sombra / desativar recuperação (típico de ransomware)",
+    "score": 90,
+    "strings": {
+      "vss": {
+        "regex": "vssadmin(\\.exe)?\\s+delete\\s+shadows",
+        "nocase": true
+      },
+      "wmic": {
+        "regex": "wmic(\\.exe)?\\s+shadowcopy\\s+delete",
+        "nocase": true
+      },
+      "bcd": {
+        "regex": "bcdedit(\\.exe)?\\s+/set\\s+\\{?default\\}?\\s+recoveryenabled\\s+no",
+        "nocase": true
+      },
+      "wbadmin": {
+        "regex": "wbadmin(\\.exe)?\\s+delete\\s+catalog",
+        "nocase": true
+      }
+    },
+    "condition": "any",
+    "filetypes": [
+      "any"
+    ]
+  },
+  {
+    "name": "Ransomware_Ransom_Note",
+    "description_en": "Typical ransom note text",
+    "description_pt": "Texto típico de nota de resgate",
+    "score": 45,
+    "strings": {
+      "a": {
+        "regex": "(your|all your) (files|documents).{0,40}(encrypted|locked)",
+        "nocase": true
+      },
+      "b": {
+        "regex": "(bitcoin|btc|monero) (wallet|address)",
+        "nocase": true
+      },
+      "c": {
+        "regex": "decrypt(ion)? (tool|key|software)",
+        "nocase": true
+      },
+      "d": {
+        "regex": "os (seus|teus) ficheiros (foram|est[aã]o) (cifrados|encriptados|bloqueados)",
+        "nocase": true
+      }
+    },
+    "condition": "2",
+    "filetypes": [
+      "any"
+    ]
+  },
+  {
+    "name": "Process_Injection",
+    "description_en": "API combination used to inject code into other processes",
+    "description_pt": "Combinação de APIs usadas para injetar código noutros processos",
+    "score": 40,
+    "strings": {
+      "a": {
+        "text": "VirtualAllocEx"
+      },
+      "b": {
+        "text": "WriteProcessMemory"
+      },
+      "c": {
+        "text": "CreateRemoteThread"
+      },
+      "d": {
+        "text": "NtUnmapViewOfSection"
+      },
+      "e": {
+        "text": "QueueUserAPC"
+      },
+      "f": {
+        "text": "SetThreadContext"
+      }
+    },
+    "condition": "3",
+    "filetypes": [
+      "pe"
+    ]
+  },
+  {
+    "name": "Keylogger_APIs",
+    "description_en": "Keyboard capture APIs combined with data exfiltration",
+    "description_pt": "APIs de captura de teclado combinadas com envio de dados",
+    "score": 35,
+    "strings": {
+      "a": {
+        "text": "GetAsyncKeyState"
+      },
+      "b": {
+        "text": "SetWindowsHookExA"
+      },
+      "c": {
+        "text": "SetWindowsHookExW"
+      },
+      "d": {
+        "text": "GetForegroundWindow"
+      },
+      "net": {
+        "regex": "InternetOpen|WinHttpOpen|send\\x00|smtp",
+        "nocase": true
+      }
+    },
+    "condition": "(a or b or c) and d and net",
+    "filetypes": [
+      "pe"
+    ]
+  },
+  {
+    "name": "Anti_Analysis",
+    "description_en": "Virtual machine / debugger detection techniques",
+    "description_pt": "Técnicas para detetar máquinas virtuais / depuradores",
+    "score": 20,
+    "strings": {
+      "a": {
+        "text": "IsDebuggerPresent"
+      },
+      "b": {
+        "text": "CheckRemoteDebuggerPresent"
+      },
+      "c": {
+        "regex": "vboxservice|vmtoolsd|vmware|sbiedll|qemu-ga",
+        "nocase": true
+      },
+      "d": {
+        "text": "NtQueryInformationProcess"
+      }
+    },
+    "condition": "3",
+    "filetypes": [
+      "pe"
+    ]
+  },
+  {
+    "name": "Registry_Persistence",
+    "description_en": "Writes to Windows auto-start registry keys",
+    "description_pt": "Escrita em chaves de arranque automático do Windows",
+    "score": 25,
+    "strings": {
+      "run": {
+        "regex": "software\\\\microsoft\\\\windows\\\\currentversion\\\\run(once)?",
+        "nocase": true
+      },
+      "write": {
+        "regex": "regsetvalue|reg(\\.exe)?\\s+add|new-itemproperty|set-itemproperty|regwrite",
+        "nocase": true
+      }
+    },
+    "condition": "all",
+    "filetypes": [
+      "any"
+    ]
+  },
+  {
+    "name": "Browser_Credential_Theft",
+    "description_en": "Accesses browser password/cookie files and crypto wallets",
+    "description_pt": "Acesso a ficheiros de passwords/cookies dos browsers e carteiras",
+    "score": 45,
+    "strings": {
+      "chrome": {
+        "regex": "google\\\\chrome\\\\user data|login data|\\\\cookies",
+        "nocase": true
+      },
+      "ff": {
+        "regex": "logins\\.json|key4\\.db",
+        "nocase": true
+      },
+      "crypt": {
+        "text": "CryptUnprotectData"
+      },
+      "wallet": {
+        "regex": "wallet\\.dat|metamask|exodus|electrum",
+        "nocase": true
+      },
+      "tg": {
+        "regex": "api\\.telegram\\.org/bot|discord(app)?\\.com/api/webhooks",
+        "nocase": true
+      }
+    },
+    "condition": "2",
+    "filetypes": [
+      "any"
+    ]
+  },
+  {
+    "name": "Obfuscated_Script",
+    "description_en": "Obfuscated JavaScript/VBScript executing commands",
+    "description_pt": "JavaScript/VBScript com ofuscação e execução de comandos",
+    "score": 45,
+    "strings": {
+      "eval": {
+        "regex": "eval\\s*\\(\\s*(unescape|atob|string\\.fromcharcode)",
+        "nocase": true
+      },
+      "activex": {
+        "regex": "new\\s+activexobject\\s*\\(\\s*[\"']wscript\\.shell",
+        "nocase": true
+      },
+      "chr": {
+        "regex": "(chr\\(\\d+\\)\\s*&\\s*){8,}",
+        "nocase": true
+      },
+      "fcc": {
+        "regex": "(fromcharcode\\([^)]{60,}\\))",
+        "nocase": true
+      }
+    },
+    "condition": "any",
+    "filetypes": [
+      "script",
+      "html"
+    ]
+  },
+  {
+    "name": "HTML_Smuggling",
+    "description_en": "HTML page that builds and downloads a hidden file",
+    "description_pt": "Página HTML que gera e descarrega um ficheiro escondido",
+    "score": 60,
+    "strings": {
+      "blob": {
+        "regex": "new\\s+blob\\s*\\(",
+        "nocase": true
+      },
+      "dl": {
+        "regex": "mssaveoropenblob|\\.download\\s*=|createobjecturl",
+        "nocase": true
+      },
+      "b64": {
+        "regex": "atob\\s*\\(|[A-Za-z0-9+/]{2000,}",
+        "nocase": true
+      }
+    },
+    "condition": "all",
+    "filetypes": [
+      "html"
+    ]
+  },
+  {
+    "name": "HTML_Phishing_Form",
+    "description_en": "HTML attachment with login form sending data elsewhere",
+    "description_pt": "Anexo HTML com formulário de login que envia dados para fora",
+    "score": 55,
+    "strings": {
+      "pw": {
+        "regex": "<input[^>]+type\\s*=\\s*[\"']?password",
+        "nocase": true
+      },
+      "action": {
+        "regex": "<form[^>]+action\\s*=\\s*[\"']?https?://",
+        "nocase": true
+      },
+      "fetch": {
+        "regex": "fetch\\s*\\(\\s*[\"']https?://|\\$\\.(post|ajax)\\s*\\(|api\\.telegram\\.org",
+        "nocase": true
+      },
+      "brand": {
+        "regex": "microsoft|office ?365|outlook|onedrive|sharepoint|docusign|adobe|paypal|caixa geral|millennium|novo banco|santander|mb ?way|ctt",
+        "nocase": true
+      }
+    },
+    "condition": "pw and (action or fetch) and brand",
+    "filetypes": [
+      "html"
+    ]
+  },
+  {
+    "name": "PDF_Active_Content",
+    "description_en": "PDF with JavaScript or automatic launch action",
+    "description_pt": "PDF com JavaScript ou ação de lançamento automática",
+    "score": 35,
+    "strings": {
+      "js": {
+        "regex": "/(JavaScript|JS)\\b"
+      },
+      "open": {
+        "regex": "/(OpenAction|AA)\\b"
+      },
+      "launch": {
+        "regex": "/Launch\\b"
+      }
+    },
+    "condition": "(js and open) or launch",
+    "filetypes": [
+      "pdf"
+    ]
+  },
+  {
+    "name": "Malicious_LNK",
+    "description_en": ".lnk shortcut launching a command interpreter with hidden instructions",
+    "description_pt": "Atalho .lnk que lança um interpretador de comandos com instruções escondidas",
+    "score": 60,
+    "strings": {
+      "interp": {
+        "regex": "cmd(\\.exe)?|powershell|pwsh|mshta|wscript|cscript|rundll32|regsvr32|conhost|certutil|bitsadmin|curl(\\.exe)?",
+        "nocase": true
+      },
+      "args": {
+        "regex": "(/c\\s|/k\\s|-e(nc|ncodedcommand)?\\s|-w(indowstyle)?\\s+h|iex|invoke-|downloadstring|frombase64|https?://|\\\\\\\\[a-z0-9.-]+\\\\|%temp%|%appdata%|\\.(ps1|vbs|js|hta|bat)\\b)",
+        "nocase": true
+      }
+    },
+    "condition": "interp and args",
+    "filetypes": [
+      "lnk"
+    ]
+  },
+  {
+    "name": "Defender_Tampering",
+    "description_en": "Tries to disable Microsoft Defender or add exclusions",
+    "description_pt": "Tenta desligar o Microsoft Defender ou adicionar exclusões",
+    "score": 70,
+    "strings": {
+      "a": {
+        "regex": "set-mppreference\\s+.*-disable(realtimemonitoring|behaviormonitoring|ioavprotection)\\s+\\$?true",
+        "nocase": true
+      },
+      "b": {
+        "regex": "add-mppreference\\s+.*-exclusion(path|process|extension)",
+        "nocase": true
+      },
+      "c": {
+        "regex": "windows defender\\\\(real-time protection\\\\)?disable(antispyware|realtimemonitoring)",
+        "nocase": true
+      }
+    },
+    "condition": "any",
+    "filetypes": [
+      "any"
+    ]
+  },
+  {
+    "name": "UAC_Bypass",
+    "description_en": "Known User Account Control (UAC) bypass technique",
+    "description_pt": "Técnica conhecida para contornar o controlo de conta (UAC)",
+    "score": 55,
+    "strings": {
+      "a": {
+        "regex": "ms-settings\\\\shell\\\\open\\\\command",
+        "nocase": true
+      },
+      "b": {
+        "regex": "(fodhelper|computerdefaults|eventvwr|sdclt)(\\.exe)?",
+        "nocase": true
+      },
+      "c": {
+        "regex": "delegateexecute",
+        "nocase": true
+      }
+    },
+    "condition": "a or (b and c)",
+    "filetypes": [
+      "any"
+    ]
+  },
+  {
+    "name": "Crypto_Miner",
+    "description_en": "Hidden cryptocurrency miner",
+    "description_pt": "Minerador de criptomoedas escondido",
+    "score": 60,
+    "strings": {
+      "a": {
+        "regex": "stratum\\+(tcp|ssl)://",
+        "nocase": true
+      },
+      "b": {
+        "regex": "xmrig|cryptonight|randomx|nicehash|minexmr|supportxmr",
+        "nocase": true
+      },
+      "c": {
+        "regex": "--donate-level|--cpu-max-threads-hint",
+        "nocase": true
+      }
+    },
+    "condition": "a or (b and c)",
+    "filetypes": [
+      "any"
+    ]
+  },
+  {
+    "name": "Hidden_Scheduled_Task",
+    "description_en": "Creates a scheduled task running hidden scripts",
+    "description_pt": "Cria tarefa agendada que corre scripts escondidos",
+    "score": 40,
+    "strings": {
+      "a": {
+        "regex": "schtasks(\\.exe)?\\s+/create",
+        "nocase": true
+      },
+      "b": {
+        "regex": "powershell|wscript|cscript|mshta|cmd\\s+/c",
+        "nocase": true
+      },
+      "c": {
+        "regex": "/sc\\s+(onlogon|minute|onstart)",
+        "nocase": true
+      }
+    },
+    "condition": "all",
+    "filetypes": [
+      "any"
+    ]
+  },
+  {
+    "name": "Tech_Support_Scam",
+    "description_en": "Fake tech-support scam page (\"your PC is infected, call now\")",
+    "description_pt": "Página falsa de suporte técnico (\"o seu PC está infetado, ligue já\")",
+    "score": 55,
+    "strings": {
+      "a": {
+        "regex": "(your (computer|pc) (has been|is) (blocked|infected|locked))|(o seu (computador|pc) (foi|est[aá]) (bloqueado|infetado))",
+        "nocase": true
+      },
+      "b": {
+        "regex": "(call|ligue)( (now|j[aá]|imediatamente))?.{0,40}(\\+?\\d[\\d\\s-]{8,})",
+        "nocase": true
+      },
+      "c": {
+        "regex": "requestfullscreen|onbeforeunload",
+        "nocase": true
+      }
+    },
+    "condition": "a and (b or c)",
+    "filetypes": [
+      "html",
+      "script"
+    ]
+  },
+  {
+    "name": "USB_Autorun",
+    "description_en": "autorun.inf that runs a program automatically (USB worm)",
+    "description_pt": "autorun.inf que executa um programa automaticamente (vírus de pens USB)",
+    "score": 70,
+    "strings": {
+      "sec": {
+        "regex": "\\[autorun\\]",
+        "nocase": true
+      },
+      "run": {
+        "regex": "(^|\\n)\\s*(open|shellexecute|shell\\\\[^\\\\\\r\\n]+\\\\command)\\s*=",
+        "nocase": true
+      }
+    },
+    "condition": "all",
+    "filetypes": [
+      "any"
+    ]
+  }
+]
