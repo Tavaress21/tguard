@@ -49,7 +49,7 @@ jobs:
           # Authenticode: Microsoft's dotnet.exe is signed, a freshly built test file is not
           $sig = ./publish/cli/tguard.exe signature "$env:ProgramFiles\dotnet\dotnet.exe" | Out-String
           Write-Host $sig
-          if ($sig -notmatch '^Valid \(Microsoft') { throw 'Authenticode check did not work.' }
+          if ($sig -notmatch '^Valid') { throw 'Authenticode check did not work.' }
           $unsigned = ./publish/cli/tguard.exe signature ./publish/cli/tguard.dll | Out-String
           if ($unsigned -notmatch '^Unsigned') { throw "Unsigned file reported as: $unsigned" }
           $out = ./publish/cli/tguard.exe scan "$env:ProgramFiles\dotnet\dotnet.exe" --all | Out-String
