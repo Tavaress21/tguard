@@ -19,9 +19,8 @@ public static class FileContext
         if (!OperatingSystem.IsWindows()) return null;
         try
         {
-            var ads = path + ":Zone.Identifier";
-            if (!File.Exists(ads)) return null;
-            return ParseZoneIdentifier(File.ReadAllText(ads));
+            // File.Exists() returns false for alternate data streams, so just try to read it
+            return ParseZoneIdentifier(File.ReadAllText(path + ":Zone.Identifier"));
         }
         catch (Exception) { return null; }
     }

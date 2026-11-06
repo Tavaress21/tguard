@@ -14,13 +14,15 @@ public sealed class UpdateReport
     public int RulesLoaded { get; set; }
     public List<string> Sources { get; set; } = new();
     public List<string> Errors { get; set; } = new();
+    public List<string> Notes { get; set; } = new();
     public bool Success => Sources.Count > 0;
 }
 
 public sealed class Updater
 {
-    public const string MalwareBazaarRecent = "https://bazaar.abuse.ch/export/txt/sha256/recent/";
-    public const string UrlhausRecent = "https://urlhaus.abuse.ch/downloads/text_recent/";
+    // Since mid-2025 abuse.ch needs a free Auth-Key (https://auth.abuse.ch/).
+    public const string MalwareBazaarRecent = "https://mb-api.abuse.ch/v2/files/exports/{0}/recent.csv";
+    public const string UrlhausRecent = "https://urlhaus-api.abuse.ch/v1/urls/recent/limit/1000/";
 
     private readonly HttpClient _http;
 
@@ -58,22 +60,30 @@ public sealed class Updater
             }
         }
 
-        // 2) abuse.ch feeds (MalwareBazaar, URLhaus)
-        var key = string.IsNullOrWhiteSpace(settings.AbuseChAuthKey) ? null : settings.AbuseChAuthKey;
-        try
+        // 2) abuse.ch feeds (MalwareBazaar, URLhaus), only with an Auth-Key
+        var key = settings.AbuseChAuthKey?.Trim();
+        if (string.IsNullOrEmpty(key))
         {
-            report.SignaturesAdded += AddHashes(engine, await GetTextAsync(new Uri(MalwareBazaarRecent), key, ct), "MalwareBazaar");
-            report.Sources.Add("MalwareBazaar");
+            report.Notes.Add("abuse.ch: no Auth-Key configured, skipped");
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or InvalidDataException)
-        { report.Errors.Add($"MalwareBazaar: {ex.Message}"); }
-        try
+        else
         {
-            report.UrlsAdded += AddUrls(engine, await GetTextAsync(new Uri(UrlhausRecent), key, ct));
-            report.Sources.Add("URLhaus");
+            try
+            {
+                var url = new Uri(string.Format(MalwareBazaarRecent, Uri.EscapeDataString(key)));
+                report.SignaturesAdded += AddHashes(engine, await GetTextAsync(url, null, ct), "MalwareBazaar");
+                report.Sources.Add("MalwareBazaar");
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or InvalidDataException)
+            { report.Errors.Add($"MalwareBazaar: {ex.Message}"); }
+            try
+            {
+                report.UrlsAdded += AddUrlhausJson(engine, await GetTextAsync(new Uri(UrlhausRecent), key, ct));
+                report.Sources.Add("URLhaus");
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or InvalidDataException or JsonException)
+            { report.Errors.Add($"URLhaus: {ex.Message}"); }
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or InvalidDataException)
-        { report.Errors.Add($"URLhaus: {ex.Message}"); }
 
         if (report.UrlsAdded > 0) engine.Blocklist.Save(TGuardPaths.UrlBlocklist);
         if (report.SignaturesAdded > 0 || report.UrlsAdded > 0 || report.RulesLoaded > 0) engine.InvalidateCache();
@@ -96,6 +106,12 @@ public sealed class Updater
         return Encoding.UTF8.GetString(bytes);
     }
 
+    private static readonly System.Text.RegularExpressions.Regex Sha256Rx = new(@"\b[a-fA-F0-9]{64}\b");
+
+    /// <summary>
+    /// Accepts plain lists ("hash" or "hash;name") and the MalwareBazaar CSV export
+    /// (hash in column 2, malware family in column 9). Lines starting with # are skipped.
+    /// </summary>
     public static int AddHashes(ScanEngine engine, string text, string source)
     {
         var items = new List<(string, string)>();
@@ -103,12 +119,32 @@ public sealed class Updater
         {
             var line = raw.Trim();
             if (line.Length < 64 || line[0] == '#') continue;
-            var parts = line.Split(';', 2);
-            var h = parts[0].Trim().Trim('"');
-            if (h.Length == 64 && h.All(Uri.IsHexDigit))
-                items.Add((h, parts.Length > 1 && parts[1].Length > 0 ? parts[1].Trim() : $"{source}.Malware"));
+            var m = Sha256Rx.Match(line);
+            if (!m.Success) continue;
+            string name = $"{source}.Malware";
+            if (line.Contains("\",\""))
+            {
+                var cols = line.Trim('"').Split("\",\"");
+                if (cols.Length > 8 && cols[8].Trim() is { Length: > 0 } sig && sig != "n/a") name = $"{source}.{sig}";
+            }
+            else if (line.IndexOf(';') is var i and > 0 && i + 1 < line.Length) name = line[(i + 1)..].Trim();
+            items.Add((m.Value, name));
         }
         return engine.Signatures.AddRange(items);
+    }
+
+    public static int AddUrlhausJson(ScanEngine engine, string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        if (!doc.RootElement.TryGetProperty("urls", out var urls) || urls.ValueKind != JsonValueKind.Array) return 0;
+        var list = urls.EnumerateArray()
+            .Select(u => u.TryGetProperty("url", out var v) ? v.GetString() : null)
+            .Where(u => !string.IsNullOrEmpty(u))
+            .Select(u => u!)
+            .ToList();
+        var before = engine.Blocklist.Count;
+        engine.Blocklist.Add(list);
+        return engine.Blocklist.Count - before;
     }
 
     public static int AddUrls(ScanEngine engine, string text)

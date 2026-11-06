@@ -82,6 +82,7 @@ public partial class DashboardView : UserControl, IRefreshable
         {
             var rep = await App.Backend.UpdateNowAsync();
             if (rep.Success) Dialog.Alert(S.T("update.done"), S.F("update.result", rep.SignaturesAdded.ToString("N0"), rep.UrlsAdded.ToString("N0")), DialogKind.Success);
+            else if (rep.Notes.Any(n => n.StartsWith("abuse.ch"))) Dialog.Alert(S.T("dash.update"), S.T("update.nokey"), DialogKind.Info);
             else Dialog.Alert(S.T("error"), S.T("update.failed"), DialogKind.Warning);
         }
         catch (Exception ex) { Dialog.Alert(S.T("error"), QuarantineView.Friendly(ex), DialogKind.Danger); }

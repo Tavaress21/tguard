@@ -54,7 +54,7 @@ public sealed class ProcessGuard : BackgroundService
             }
             try
             {
-                using var watcher = new ManagementEventWatcher(new WqlEventQuery("SELECT ProcessID FROM Win32_ProcessStartTrace"));
+                using var watcher = new ManagementEventWatcher(new WqlEventQuery("Win32_ProcessStartTrace"));
                 watcher.EventArrived += (_, e) =>
                 {
                     try { _queue.Writer.TryWrite(Convert.ToInt32(e.NewEvent["ProcessID"])); }

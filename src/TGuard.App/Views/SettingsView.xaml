@@ -26,6 +26,12 @@
                     <Border Height="1" Background="{StaticResource Line}" />
                     <CheckBox x:Name="AutoUpdate" Style="{StaticResource Switch}" Content="{s:Tr set.autoupdate}" Margin="0,12" />
                     <Border Height="1" Background="{StaticResource Line}" />
+                    <StackPanel Margin="0,12">
+                        <TextBlock Text="{s:Tr set.abusekey}" Style="{StaticResource Label}" FontFamily="{StaticResource Body}" />
+                        <TextBlock Text="{s:Tr set.abusekey.note}" Style="{StaticResource Small}" Margin="0,2,0,8" />
+                        <TextBox x:Name="AbuseKey" />
+                    </StackPanel>
+                    <Border Height="1" Background="{StaticResource Line}" />
                     <DockPanel Margin="0,12">
                         <ComboBox x:Name="Hour" DockPanel.Dock="Right" Width="90" Margin="16,0,0,0" VerticalAlignment="Center" />
                         <CheckBox x:Name="Scheduled" Style="{StaticResource Switch}" Content="{s:Tr set.scheduled}" />

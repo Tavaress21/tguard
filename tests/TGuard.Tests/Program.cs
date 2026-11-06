@@ -339,10 +339,11 @@ internal static class UpdateTests
             ["https://tguard.example/updates/sig.txt"] = $"# list\n{h1};Trojan.Test\n",
             ["https://tguard.example/updates/urls.txt"] = "http://phish.example/login\nhost:mbway-reembolso.example\n",
             ["https://tguard.example/updates/rules.json"] = "[{\"name\":\"Teste_Update\",\"description_pt\":\"x\",\"score\":90,\"strings\":{\"a\":{\"text\":\"TGUARD-UPDATE-MARKER\"}},\"condition\":\"any\"}]",
-            [Updater.MalwareBazaarRecent] = $"# MalwareBazaar\n\"{h2}\"\n",
-            [Updater.UrlhausRecent] = "# URLhaus\nhttp://mal.example/a.exe\n",
+            [string.Format(Updater.MalwareBazaarRecent, "KEY123")] =
+                "# MalwareBazaar recent\n\"2026-11-06 10:00:00\",\"" + h2 + "\",\"md5\",\"sha1\",\"anon\",\"x.exe\",\"exe\",\"application/x-dosexec\",\"AgentTesla\",\"n/a\"\n",
+            [Updater.UrlhausRecent] = "{\"query_status\":\"ok\",\"urls\":[{\"url\":\"http://mal.example/a.exe\",\"host\":\"mal.example\"}]}",
         });
-        var e = ScanEngine.CreateDefault(new TGuardSettings { UpdateUrl = "https://tguard.example/updates/" });
+        var e = ScanEngine.CreateDefault(new TGuardSettings { UpdateUrl = "https://tguard.example/updates/", AbuseChAuthKey = "KEY123" });
         e.UseWindowsContext = false;
         var rep = new Updater(http).RunAsync(e, e.Settings).GetAwaiter().GetResult();
         Assert.Equal(0, rep.Errors.Count, string.Join(" | ", rep.Errors));
@@ -350,6 +351,7 @@ internal static class UpdateTests
         Assert.Equal(3, rep.UrlsAdded);
         Assert.Equal(1, rep.RulesLoaded);
         Assert.Equal("Trojan.Test", e.Signatures.Lookup(h1));
+        Assert.Equal("MalwareBazaar.AgentTesla", e.Signatures.Lookup(h2));
         Assert.True(e.Urls.Analyze("https://mbway-reembolso.example/pagar").Any(f => f.Score == 90), "blocked host");
         Assert.Equal(Verdict.Malicious, e.ScanBytes(Encoding.ASCII.GetBytes("xx TGUARD-UPDATE-MARKER xx"), "a.txt").Verdict);
         // persisted for the next start
@@ -376,8 +378,12 @@ internal static class UpdateTests
     [Test] static void OfflineUpdateDoesNotCrash()
     {
         var e = ScanEngine.CreateDefault(new TGuardSettings { UpdateUrl = "https://t.example/u/" });
+        e.Settings.AbuseChAuthKey = "KEY";
         var rep = new Updater(new FakeHttp(new())).RunAsync(e, e.Settings).GetAwaiter().GetResult();
         Assert.True(!rep.Success && rep.Errors.Count == 3, string.Join(" | ", rep.Errors));
+        e.Settings.AbuseChAuthKey = "";
+        rep = new Updater(new FakeHttp(new())).RunAsync(e, e.Settings).GetAwaiter().GetResult();
+        Assert.True(rep.Notes.Count == 1 && rep.Errors.Count == 1, "without a key abuse.ch should be skipped, not fail");
     }
 }
 
