@@ -12,11 +12,16 @@ public sealed class RealtimeProtection : BackgroundService
     private readonly ILogger<RealtimeProtection> _log;
     private readonly List<FileSystemWatcher> _watchers = new();
     private readonly ConcurrentDictionary<string, (DateTime Seen, long Size)> _pending = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, int> _retries = new(StringComparer.OrdinalIgnoreCase);
+    private List<string> _folders = new();
+    private List<string> _exclusions = new();
     private readonly ConcurrentDictionary<string, DateTime> _recent = new(StringComparer.OrdinalIgnoreCase);
 
     private readonly ConcurrentDictionary<string, FileSystemWatcher> _drives = new(StringComparer.OrdinalIgnoreCase);
 
-    public int WatchedFolders => _watchers.Count + _drives.Count;
+    public int WatchedFolders { get { lock (_watchers) return _watchers.Count + _drives.Count; } }
+
+    public event Action<string, WatcherChangeTypes, string?>? FileChanged;
 
     public RealtimeProtection(ServiceState state, ILogger<RealtimeProtection> log)
     {
@@ -42,10 +47,21 @@ public sealed class RealtimeProtection : BackgroundService
     {
         lock (_watchers)
         {
+            _exclusions = UserFolders.Expand(_state.Settings.Exclusions)
+                .Select(e => e.TrimEnd('\\', '/')).Where(e => e.Length > 2).ToList();
+            var wanted = _state.Settings.RealtimeEnabled ? UserFolders.Resolve(_state.Settings.WatchFolders) : new List<string>();
+            if (wanted.Count == _folders.Count && wanted.All(f => _folders.Contains(f, StringComparer.OrdinalIgnoreCase)) && _watchers.Count == wanted.Count)
+                return;
             foreach (var w in _watchers) w.Dispose();
             _watchers.Clear();
-            if (!_state.Settings.RealtimeEnabled) { _log.LogInformation("Real-time protection is off"); return; }
-            foreach (var dir in UserFolders.Resolve(_state.Settings.WatchFolders))
+            _folders = wanted;
+            if (!_state.Settings.RealtimeEnabled)
+            {
+                foreach (var d in _drives.Keys.ToList()) RemoveDrive(d);
+                _log.LogInformation("Real-time protection is off");
+                return;
+            }
+            foreach (var dir in wanted)
             {
                 var w = CreateWatcher(dir);
                 if (w is not null) _watchers.Add(w);
@@ -64,9 +80,10 @@ public sealed class RealtimeProtection : BackgroundService
                 NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size,
                 InternalBufferSize = 64 * 1024,
             };
-            w.Created += (_, e) => Queue(e.FullPath);
-            w.Changed += (_, e) => Queue(e.FullPath);
-            w.Renamed += (_, e) => Queue(e.FullPath);
+            w.Created += (_, e) => { Queue(e.FullPath); FileChanged?.Invoke(e.FullPath, e.ChangeType, null); };
+            w.Changed += (_, e) => { Queue(e.FullPath); FileChanged?.Invoke(e.FullPath, e.ChangeType, null); };
+            w.Renamed += (_, e) => { Queue(e.FullPath); FileChanged?.Invoke(e.FullPath, e.ChangeType, e.OldFullPath); };
+            w.Deleted += (_, e) => FileChanged?.Invoke(e.FullPath, e.ChangeType, null);
             w.Error += (_, e) => _log.LogWarning(e.GetException(), "Watcher for {Dir} dropped events", dir);
             w.EnableRaisingEvents = true;
             return w;
@@ -95,8 +112,17 @@ public sealed class RealtimeProtection : BackgroundService
         var lower = path.ToLowerInvariant();
         if (IgnoreSuffix.Any(lower.EndsWith) || lower.Contains("~$")) return;
         if (path.StartsWith(TGuardPaths.Root, StringComparison.OrdinalIgnoreCase)) return;
-        if (_state.Settings.Exclusions.Any(e => path.StartsWith(Environment.ExpandEnvironmentVariables(e), StringComparison.OrdinalIgnoreCase))) return;
+        if (IsExcluded(path)) return;
         _pending[path] = (DateTime.UtcNow, -1);
+    }
+
+    private bool IsExcluded(string path)
+    {
+        foreach (var e in _exclusions)
+            if (path.Equals(e, StringComparison.OrdinalIgnoreCase)
+                || (path.StartsWith(e, StringComparison.OrdinalIgnoreCase) && path.Length > e.Length && path[e.Length] is '\\' or '/'))
+                return true;
+        return false;
     }
 
     private void ProcessPending(CancellationToken ct)
@@ -124,6 +150,14 @@ public sealed class RealtimeProtection : BackgroundService
             try
             {
                 var r = _state.Engine.ScanFile(path, ct: ct);
+                if (r.Error is not null && File.Exists(path))
+                {
+                    var n = _retries.AddOrUpdate(path, 1, (_, v) => v + 1);
+                    if (n <= 20) { _recent.TryRemove(path, out _); _pending[path] = (now.AddSeconds(Math.Min(30, n * 2)), size); }
+                    else _retries.TryRemove(path, out _);
+                    continue;
+                }
+                _retries.TryRemove(path, out _);
                 _state.Handle(r, "realtime");
             }
             catch (Exception ex) { _log.LogWarning(ex, "Error scanning {File}", path); }

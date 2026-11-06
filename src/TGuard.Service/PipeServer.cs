@@ -109,7 +109,7 @@ public sealed class PipeServer : BackgroundService
                     Signatures = _state.Engine.Signatures.Count,
                     Rules = _state.Engine.Rules.Rules.Count,
                     QuarantineCount = _state.Quarantine.List().Count,
-                    ThreatsLast30Days = _state.Events.Recent(1000, true).Count(e => e.Date > DateTimeOffset.Now.AddDays(-30)),
+                    ThreatsLast30Days = _state.Events.ThreatsSince(DateTimeOffset.Now.AddDays(-30)),
                     LastScan = _state.State.LastScan,
                     CurrentScan = _scans.Current,
                 });

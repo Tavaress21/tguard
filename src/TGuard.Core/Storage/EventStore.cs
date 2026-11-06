@@ -20,6 +20,8 @@ public sealed class EventStore
     private readonly object _lock = new();
     private const long MaxBytes = 10 * 1024 * 1024;
 
+    private List<SecurityEvent>? _threatCache;
+
     public event Action<SecurityEvent>? Added;
 
     public EventStore(string? path = null) => _path = path ?? TGuardPaths.Events;
@@ -33,8 +35,27 @@ public sealed class EventStore
             if (File.Exists(_path) && new FileInfo(_path).Length > MaxBytes)
                 File.Move(_path, _path + ".old", true);
             File.AppendAllText(_path, line);
+            _threatCache = null;
         }
         Added?.Invoke(e);
+    }
+
+    public int ThreatsSince(DateTimeOffset since)
+    {
+        lock (_lock)
+        {
+            _threatCache ??= Recent(2000, true);
+            return _threatCache.Count(e => e.Date > since);
+        }
+    }
+
+    public List<SecurityEvent> Since(DateTimeOffset since, int max = 100)
+    {
+        lock (_lock)
+        {
+            _threatCache ??= Recent(2000, true);
+            return _threatCache.Where(e => e.Date > since).Take(max).ToList();
+        }
     }
 
     public List<SecurityEvent> Recent(int max = 200, bool onlyThreats = false)

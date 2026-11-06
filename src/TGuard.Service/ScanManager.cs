@@ -13,7 +13,11 @@ public sealed class ScanManager
     private readonly object _lock = new();
     private CancellationTokenSource? _cts;
 
-    public ScanProgress? Current { get; private set; }
+    private ScanProgress? _current;
+
+    public ScanProgress? Current => _current?.Snapshot();
+
+    public bool Running => _current is { Running: true };
 
     public ScanManager(ServiceState state, Notifier notifier, ILogger<ScanManager> log)
     {
@@ -26,7 +30,7 @@ public sealed class ScanManager
     {
         lock (_lock)
         {
-            if (Current is { Running: true }) return Current;
+            if (_current is { Running: true }) return _current.Snapshot();
             var targets = type switch
             {
                 "full" => UserFolders.FullScanTargets(),
@@ -34,11 +38,11 @@ public sealed class ScanManager
                 _ => UserFolders.QuickScanTargets(),
             };
             _cts = new CancellationTokenSource();
-            Current = new ScanProgress { Id = Guid.NewGuid().ToString("N")[..8], Type = type, Running = true, Started = DateTimeOffset.Now };
-            var progress = Current;
+            _current = new ScanProgress { Id = Guid.NewGuid().ToString("N")[..8], Type = type, Running = true, Started = DateTimeOffset.Now };
+            var progress = _current;
             var ct = _cts.Token;
             _ = Task.Run(() => Run(progress, targets, ct));
-            return progress;
+            return progress.Snapshot();
         }
     }
 
@@ -85,5 +89,5 @@ public sealed class ScanManager
     }
 
     private void Push(string kind, ScanProgress p, string title = "", string message = "") =>
-        _notifier.Publish(new Notification { Kind = kind, Title = title, Message = message, Data = JsonSerializer.SerializeToNode(p, Protocol.Json) });
+        _notifier.Publish(new Notification { Kind = kind, Title = title, Message = message, Data = JsonSerializer.SerializeToNode(p.Snapshot(), Protocol.Json) });
 }

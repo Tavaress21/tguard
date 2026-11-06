@@ -58,6 +58,11 @@ public partial class MainWindow : Window
         if (view is IRefreshable r) _ = r.RefreshAsync();
     }
 
+    public void RefreshCurrent()
+    {
+        if (Host.Content is IRefreshable r) _ = r.RefreshAsync();
+    }
+
     private void Nav_Checked(object sender, RoutedEventArgs e)
     {
         if (sender is RadioButton { Tag: string key }) Navigate(key);

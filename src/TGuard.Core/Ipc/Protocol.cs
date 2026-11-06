@@ -71,6 +71,19 @@ public sealed class ScanProgress
     public DateTimeOffset? Finished { get; set; }
     public bool Cancelled { get; set; }
     public List<ThreatInfo> Found { get; set; } = new();
+
+    public ScanProgress Snapshot()
+    {
+        lock (Found)
+        {
+            return new ScanProgress
+            {
+                Id = Id, Type = Type, Running = Running, FilesScanned = FilesScanned, Threats = Threats,
+                CurrentFile = CurrentFile, Started = Started, Finished = Finished, Cancelled = Cancelled,
+                Found = Found.ToList(),
+            };
+        }
+    }
 }
 
 public sealed class ThreatInfo

@@ -63,9 +63,14 @@ public partial class App : Application
                 });
                 return;
             }
-            if (n.Kind is "threat" or "scan-done" or "usb" or "usb-done" && Backend.NotificationsEnabled && !string.IsNullOrEmpty(n.Title))
-                Dispatcher.BeginInvoke(() => _tray?.Notify(n.Title, n.Message, n.Kind == "threat"));
+            if (n.Kind is "threat" or "scan-done" or "usb" or "usb-done" or "ransomware" or "email" && Backend.NotificationsEnabled && !string.IsNullOrEmpty(n.Title))
+                Dispatcher.BeginInvoke(() => _tray?.Notify(n.Title, n.Message, n.Kind is "threat" or "ransomware"));
         };
+
+        Backend.Reconnected += () => Dispatcher.BeginInvoke(() => win.RefreshCurrent());
+        var reconnect = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
+        reconnect.Tick += async (_, _) => { if (!Backend.ServiceAvailable) await Backend.ConnectAsync(); };
+        reconnect.Start();
 
         if (!args.Contains("--tray")) win.Show();
     }

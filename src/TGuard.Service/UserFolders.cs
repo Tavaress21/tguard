@@ -18,7 +18,9 @@ public static class UserFolders
         }
     }
 
-    public static List<string> Resolve(IEnumerable<string> patterns)
+    public static List<string> Resolve(IEnumerable<string> patterns) => Expand(patterns).Where(Directory.Exists).ToList();
+
+    public static List<string> Expand(IEnumerable<string> patterns)
     {
         var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var profiles = Profiles().ToList();
@@ -30,15 +32,14 @@ public static class UserFolders
                        || p.Contains("%TEMP%", StringComparison.OrdinalIgnoreCase)
                        || p.Contains("%APPDATA%", StringComparison.OrdinalIgnoreCase)
                        || p.Contains("%LOCALAPPDATA%", StringComparison.OrdinalIgnoreCase);
-            if (!perUser) { var e = Environment.ExpandEnvironmentVariables(p); if (Directory.Exists(e)) result.Add(e); continue; }
+            if (!perUser) { result.Add(Environment.ExpandEnvironmentVariables(p)); continue; }
             foreach (var prof in profiles)
             {
                 var x = Replace(p, "%USERPROFILE%", prof);
                 x = Replace(x, "%TEMP%", Path.Combine(prof, "AppData", "Local", "Temp"));
                 x = Replace(x, "%LOCALAPPDATA%", Path.Combine(prof, "AppData", "Local"));
                 x = Replace(x, "%APPDATA%", Path.Combine(prof, "AppData", "Roaming"));
-                x = Environment.ExpandEnvironmentVariables(x);
-                if (Directory.Exists(x)) result.Add(x);
+                result.Add(Environment.ExpandEnvironmentVariables(x));
             }
         }
         return result.ToList();

@@ -60,13 +60,22 @@ public sealed class Backend
         catch (Exception) { return false; }
     }
 
+    private bool _listening;
+
+    public event Action? Reconnected;
+
     public async Task<bool> ConnectAsync()
     {
+        var was = _serviceAvailable;
         var r = await _client.SendAsync("status");
         ServiceAvailable = r.Ok;
-        if (ServiceAvailable)
+        if (_serviceAvailable && !_listening)
+        {
+            _listening = true;
             _ = _client.ListenAsync(n => Notified?.Invoke(n), _listen.Token);
-        return ServiceAvailable;
+        }
+        if (_serviceAvailable && !was) Reconnected?.Invoke();
+        return _serviceAvailable;
     }
 
     public async Task<ServiceStatus> GetStatusAsync()

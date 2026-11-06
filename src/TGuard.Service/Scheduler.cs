@@ -20,7 +20,7 @@ public sealed class Scheduler : BackgroundService
         try { await Task.Delay(TimeSpan.FromMinutes(10), ct); } catch (OperationCanceledException) { return; }
         while (!ct.IsCancellationRequested)
         {
-            if (Schedule.IsQuickScanDue(_state.Settings, _state.State, DateTime.Now) && _scans.Current is not { Running: true })
+            if (Schedule.IsQuickScanDue(_state.Settings, _state.State, DateTime.Now) && !_scans.Running)
             {
                 _state.State.LastScheduledScan = DateOnly.FromDateTime(DateTime.Now);
                 _state.State.Save();

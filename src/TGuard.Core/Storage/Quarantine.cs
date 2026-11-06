@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json;
 
@@ -12,6 +13,7 @@ public sealed class QuarantineItem
     public long Size { get; set; }
     public string Threat { get; set; } = "";
     public List<string> Reasons { get; set; } = new();
+    public bool PendingReboot { get; set; }
 }
 
 public sealed class Quarantine
@@ -59,7 +61,18 @@ public sealed class Quarantine
         try { File.Delete(path); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            File.Move(path, path + ".tguard-bloqueado", true);
+            try { File.Move(path, path + ".tguard-bloqueado", true); }
+            catch (Exception ex2) when (ex2 is IOException or UnauthorizedAccessException)
+            {
+                if (!OperatingSystem.IsWindows() || !MoveFileEx(path, null, 4)) throw;
+                item.PendingReboot = true;
+                lock (_lock)
+                {
+                    var items = List();
+                    var i = items.FindIndex(x => x.Id == item.Id);
+                    if (i >= 0) { items[i] = item; SaveIndex(items); }
+                }
+            }
         }
         return item;
     }
@@ -95,6 +108,9 @@ public sealed class Quarantine
         }
         return item;
     }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool MoveFileEx(string existing, string? replacement, int flags);
 
     public byte[] ReadDecrypted(string id)
     {
