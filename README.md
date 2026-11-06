@@ -43,6 +43,12 @@ BitLocker, Wi-Fi security and suspicious startup entries.
 Still to come: email protection (Gmail, Outlook, IMAP), anti-ransomware decoy files,
 a browser extension and an installer.
 
+## Installing
+
+Grab `TGuard-Setup-x.y.z.exe` from [Releases](https://github.com/Tavaress21/tguard/releases) and run it.
+Setup installs the .NET 8 Desktop Runtime if it's missing. The installer isn't code-signed yet,
+so SmartScreen will ask for confirmation ("More info" → "Run anyway").
+
 ## Building
 
 You need the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0).
@@ -56,7 +62,8 @@ dotnet run --project src/TGuard.Cli -- check
 
 Every push is built and tested on Windows by GitHub Actions. The integration tests start the
 service, drop harmless test samples and check that they get caught, quarantined or killed.
-Builds are available from the Actions tab; `scripts/Install-TGuard.ps1` installs one for testing.
+The installer is built with [Inno Setup](https://jrsoftware.org/isinfo.php) from `installer/TGuard.iss`
+and is also installed and uninstalled on the CI machine as part of the tests.
 
 ## Layout
 

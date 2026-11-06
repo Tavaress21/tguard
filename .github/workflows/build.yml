@@ -3,6 +3,7 @@ name: Build and test
 on:
   push:
     branches: [ main ]
+    tags: [ 'v*' ]
   pull_request:
   workflow_dispatch:
 
@@ -72,6 +73,43 @@ jobs:
         shell: pwsh
         run: ./scripts/ci-service-test.ps1
 
+      - name: Build installer
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y | Out-Null
+          $version = (Select-Xml -Path Directory.Build.props -XPath '//Version').Node.InnerText
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /Q "/DAppVersion=$version" installer\TGuard.iss
+          if ($LASTEXITCODE -ne 0) { throw 'Inno Setup failed.' }
+          Get-ChildItem publish\TGuard-Setup-*.exe | ForEach-Object { "{0} {1:N1} MB" -f $_.Name, ($_.Length / 1MB) }
+
+      - name: Installer test (silent install, service, uninstall)
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem publish\TGuard-Setup-*.exe | Select-Object -First 1
+          $p = Start-Process $setup.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/LANG=en' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Setup exited with $($p.ExitCode)" }
+          $svc = Get-Service TGuard -ErrorAction Stop
+          for ($i = 0; $i -lt 20 -and $svc.Status -ne 'Running'; $i++) { Start-Sleep 1; $svc.Refresh() }
+          if ($svc.Status -ne 'Running') { throw "Service is $($svc.Status)" }
+          $exe = Join-Path $env:ProgramFiles 'TGuard\app\TGuard.exe'
+          if (-not (Test-Path $exe)) { throw 'App was not installed.' }
+          $pipe = New-Object System.IO.Pipes.NamedPipeClientStream('.', 'TGuard.Service.v1', [System.IO.Pipes.PipeDirection]::InOut)
+          $pipe.Connect(10000)
+          $w = New-Object System.IO.StreamWriter($pipe); $w.AutoFlush = $true
+          $r = New-Object System.IO.StreamReader($pipe)
+          $w.WriteLine('{"cmd":"status"}')
+          $status = $r.ReadLine() | ConvertFrom-Json
+          $pipe.Dispose()
+          if (-not $status.ok) { throw 'Installed service did not answer.' }
+          Write-Host "Installed service: $($status.data | ConvertTo-Json -Compress)"
+          $acl = (Get-Acl "$env:ProgramData\TGuard").Access | Where-Object { $_.IdentityReference -like '*Users*' }
+          if ($acl.FileSystemRights -match 'Write|Modify|FullControl') { throw 'Users can write to ProgramData\TGuard.' }
+          $u = Start-Process (Join-Path $env:ProgramFiles 'TGuard\unins000.exe') -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
+          Start-Sleep 3
+          if (Get-Service TGuard -ErrorAction SilentlyContinue) { throw 'Service still exists after uninstall.' }
+          if (Test-Path $exe) { throw 'App still exists after uninstall.' }
+          Write-Host 'Install / uninstall OK'
+
       - name: UI selftest (screenshots)
         shell: pwsh
         run: |
@@ -104,6 +142,30 @@ jobs:
           name: screenshots
           path: screenshots/
           retention-days: 14
+
+      - name: Push installer to ci-builds branch
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force ci-builds | Out-Null
+          Copy-Item publish\TGuard-Setup-*.exe ci-builds\
+          Set-Location ci-builds
+          git init -q -b ci-builds
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Installer for ${{ github.sha }}"
+          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" ci-builds
+
+      - name: GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $setup = Get-ChildItem publish\TGuard-Setup-*.exe | Select-Object -First 1
+          gh release create $tag $setup.FullName --title "TGuard $($tag.TrimStart('v'))" --notes-file installer/RELEASE_NOTES.md
 
       - uses: actions/upload-artifact@v4
         with:
