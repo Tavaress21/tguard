@@ -66,7 +66,9 @@ public static class CommandLineAnalyzer
 
         r.Score = ScanEngine.Combine(r.Findings.Select(f => f.Score));
         r.Verdict = engine.VerdictFor(r.Score);
-        if (r.Verdict == Verdict.Malicious) r.ThreatName ??= "TGuard.Heur.CommandLine";
+        if (r.Verdict == Verdict.Malicious)
+            r.ThreatName ??= r.Findings.Where(f => f.Source.StartsWith("rule:")).OrderByDescending(f => f.Score)
+                                .Select(f => "TGuard." + f.Source[5..]).FirstOrDefault() ?? "TGuard.Heur.CommandLine";
         return r;
     }
 }

@@ -8,6 +8,7 @@ public sealed class AppState
     public string? LastScanType { get; set; }
     public DateOnly? LastScheduledScan { get; set; }
     public DateTimeOffset? LastUpdate { get; set; }
+    public DateTimeOffset? LastUpdateAttempt { get; set; }
 
     private static string PathOf => System.IO.Path.Combine(TGuardPaths.Root, "state.json");
     private static readonly object Lock = new();

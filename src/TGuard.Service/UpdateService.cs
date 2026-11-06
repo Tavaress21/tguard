@@ -23,8 +23,11 @@ public sealed class UpdateService : BackgroundService
         try { await Task.Delay(TimeSpan.FromMinutes(2), ct); } catch (OperationCanceledException) { return; }
         while (!ct.IsCancellationRequested)
         {
-            var last = _state.State.LastUpdate;
-            if (_state.Settings.AutoUpdate && (last is null || DateTimeOffset.Now - last > Interval))
+            var st = _state.State;
+            var due = st.LastUpdate is null || DateTimeOffset.Now - st.LastUpdate > Interval;
+            // after a failed attempt (offline, server down) wait an hour before trying again
+            var backoff = st.LastUpdateAttempt is not null && DateTimeOffset.Now - st.LastUpdateAttempt < TimeSpan.FromHours(1);
+            if (_state.Settings.AutoUpdate && due && !backoff)
                 await RunAsync(ct);
             try { await Task.Delay(TimeSpan.FromMinutes(15), ct); } catch (OperationCanceledException) { return; }
         }
@@ -36,6 +39,8 @@ public sealed class UpdateService : BackgroundService
         try
         {
             var report = await _updater.RunAsync(_state.Engine, _state.Settings, ct);
+            _state.State.LastUpdateAttempt = DateTimeOffset.Now;
+            _state.State.Save();
             if (report.Success)
             {
                 _state.State.LastUpdate = DateTimeOffset.Now;

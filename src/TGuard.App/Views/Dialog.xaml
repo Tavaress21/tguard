@@ -4,6 +4,7 @@
         WindowStyle="None" AllowsTransparency="True" Background="Transparent" ResizeMode="NoResize"
         SizeToContent="WidthAndHeight" ShowInTaskbar="False" WindowStartupLocation="CenterOwner"
         FontFamily="{StaticResource Body}" UseLayoutRounding="True">
+    <Grid>
     <Border Background="White" CornerRadius="16" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1" Margin="24" Width="440">
         <Border.Effect>
             <DropShadowEffect BlurRadius="30" ShadowDepth="6" Direction="270" Opacity="0.18" Color="#0F172A" />
@@ -21,4 +22,5 @@
             </StackPanel>
         </StackPanel>
     </Border>
+    </Grid>
 </Window>

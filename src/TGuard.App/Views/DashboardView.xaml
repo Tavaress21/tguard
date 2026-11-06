@@ -64,6 +64,7 @@
                         <StackPanel Margin="0,0,8,0">
                             <TextBlock Text="{s:Tr dash.tile.threats}" Style="{StaticResource Caption}" />
                             <TextBlock x:Name="TileThreats" Text="—" Style="{StaticResource Metric}" Margin="0,2,0,0" />
+                            <TextBlock Text="{s:Tr dash.tile.threats.sub}" Style="{StaticResource Small}" FontSize="11.5" />
                         </StackPanel>
                     </DockPanel>
                 </Border>

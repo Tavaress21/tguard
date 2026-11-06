@@ -22,16 +22,18 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <Border Style="{StaticResource IconTile}" Margin="0,0,16,0">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <Border Grid.RowSpan="2" Style="{StaticResource IconTile}" Margin="0,0,16,0">
                                     <TextBlock Text="{Binding Glyph}" Style="{StaticResource Icon}" Foreground="{StaticResource Royal}" />
                                 </Border>
-                                <StackPanel Grid.Column="1">
-                                    <TextBlock Text="{Binding Title}" Style="{StaticResource H2}" FontSize="15.5" />
-                                    <TextBlock Text="{Binding Description}" Style="{StaticResource Small}" FontSize="13" Margin="0,4,0,0" />
-                                </StackPanel>
-                                <Border Grid.Column="2" Style="{StaticResource Pill}" Background="{Binding StatusBackground}" VerticalAlignment="Top" Margin="12,0,0,0">
+                                <TextBlock Grid.Column="1" Text="{Binding Title}" Style="{StaticResource H2}" FontSize="15.5" VerticalAlignment="Center" />
+                                <Border Grid.Column="2" Style="{StaticResource Pill}" Background="{Binding StatusBackground}" Margin="12,0,0,0">
                                     <TextBlock Text="{Binding Status}" Style="{StaticResource PillText}" Foreground="{Binding StatusForeground}" />
                                 </Border>
+                                <TextBlock Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Text="{Binding Description}" Style="{StaticResource Small}" FontSize="13" Margin="0,6,0,0" />
                             </Grid>
                         </Border>
                     </DataTemplate>
