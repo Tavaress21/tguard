@@ -55,6 +55,9 @@ public sealed class TGuardSettings
     public string UpdateUrl { get; set; } = "https://tguard.luis-tavares.pt/updates/";
     public bool AutoUpdate { get; set; } = true;
     public string AbuseChAuthKey { get; set; } = "";
+    public bool AutoInstallUpdates { get; set; } = true;
+    /// <summary>Extra public keys accepted for updates (admin-only, used by the CI tests).</summary>
+    public List<string> ExtraUpdateKeys { get; set; } = new();
 
     // process guard and USB drives
     public bool ProcessGuardEnabled { get; set; } = true;

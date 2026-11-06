@@ -38,7 +38,10 @@ Every file gets a score from 0 to 100. 40 and up is suspicious, 80 and up is mal
 **PC security check.** Defender status, firewall, Windows Update, UAC, SMBv1, Remote Desktop,
 BitLocker, Wi-Fi security and suspicious startup entries.
 
-**Updates.** Signatures and malicious URL lists are refreshed every 6 hours.
+**Updates.** Signatures, malicious URL lists and new versions of TGuard itself come from
+[tguard.luis-tavares.pt](https://tguard.luis-tavares.pt) every 6 hours and install silently.
+Everything is signed in GitHub Actions and verified on the PC, so the web server can't push
+anything by itself — see [`server/`](server/README.md).
 
 Still to come: email protection (Gmail, Outlook, IMAP), anti-ransomware decoy files,
 a browser extension and an installer.

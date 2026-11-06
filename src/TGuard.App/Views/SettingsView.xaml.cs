@@ -33,6 +33,8 @@ public partial class SettingsView : UserControl, IRefreshable
         UsbScan.IsChecked = _settings.UsbScanEnabled;
         UsbScan.IsEnabled = App.Backend.ServiceAvailable;
         AutoUpdate.IsChecked = _settings.AutoUpdate;
+        AutoInstall.IsChecked = _settings.AutoInstallUpdates;
+        AutoInstall.IsEnabled = App.Backend.ServiceAvailable;
         AbuseKey.Text = _settings.AbuseChAuthKey;
         Notifications.IsChecked = _settings.Notifications;
         Scheduled.IsChecked = _settings.ScheduledQuickScan;
@@ -52,6 +54,7 @@ public partial class SettingsView : UserControl, IRefreshable
         _settings.ProcessGuardEnabled = ProcessGuard.IsChecked == true;
         _settings.UsbScanEnabled = UsbScan.IsChecked == true;
         _settings.AutoUpdate = AutoUpdate.IsChecked == true;
+        _settings.AutoInstallUpdates = AutoInstall.IsChecked == true;
         _settings.AbuseChAuthKey = AbuseKey.Text.Trim();
         _settings.Notifications = Notifications.IsChecked == true;
         _settings.ScheduledQuickScan = Scheduled.IsChecked == true;

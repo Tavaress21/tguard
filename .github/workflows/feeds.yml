@@ -1,0 +1,56 @@
+name: Publish feeds
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: updates-branch
+  cancel-in-progress: false
+
+jobs:
+  feeds:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Check signing key
+        id: key
+        env:
+          KEY: ${{ secrets.TGUARD_FEEDS_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then echo "TGUARD_FEEDS_KEY is not set, nothing to publish"; echo "ok=false" >> "$GITHUB_OUTPUT"; else echo "ok=true" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Get current update files
+        if: steps.key.outputs.ok == 'true'
+        run: |
+          mkdir -p out
+          if git fetch -q origin updates; then git archive origin/updates | tar -x -C out; fi
+          ls -la out
+
+      - name: Build and sign lists
+        if: steps.key.outputs.ok == 'true'
+        env:
+          TGUARD_FEEDS_KEY: ${{ secrets.TGUARD_FEEDS_KEY }}
+          ABUSECH_AUTH_KEY: ${{ secrets.ABUSECH_AUTH_KEY }}
+        run: dotnet run --project src/TGuard.Cli -c Release -- publish-feeds out server/lists
+
+      - name: Push to updates branch
+        if: steps.key.outputs.ok == 'true'
+        run: |
+          cd out
+          git init -q -b updates
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Update feeds"
+          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" updates

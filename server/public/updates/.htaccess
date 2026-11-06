@@ -1,0 +1,8 @@
+Options -Indexes
+<IfModule mod_headers.c>
+    <FilesMatch "\.(json|sig|txt)$">
+        Header set Cache-Control "no-cache"
+    </FilesMatch>
+</IfModule>
+AddType application/json .json
+AddType application/octet-stream .sig .exe

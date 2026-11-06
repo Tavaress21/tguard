@@ -122,6 +122,10 @@ jobs:
           if (Test-Path $exe) { throw 'App still exists after uninstall.' }
           Write-Host 'Install / uninstall OK'
 
+      - name: Auto-update test (install, publish 99.0.0 locally, service updates itself)
+        shell: pwsh
+        run: ./scripts/ci-update-test.ps1
+
       - name: UI selftest (screenshots)
         shell: pwsh
         run: |
@@ -168,6 +172,28 @@ jobs:
           git add -A
           git commit -q -m "Installer for ${{ github.sha }}"
           git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" ci-builds
+
+      - name: Publish signed update
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          TGUARD_RELEASE_KEY: ${{ secrets.TGUARD_RELEASE_KEY }}
+        run: |
+          if (-not $env:TGUARD_RELEASE_KEY) { Write-Host 'TGUARD_RELEASE_KEY is not set, skipping auto-update publish'; exit 0 }
+          $version = "${{ github.ref_name }}".TrimStart('v')
+          New-Item -ItemType Directory -Force out | Out-Null
+          git fetch -q origin updates 2>$null
+          if ($LASTEXITCODE -eq 0) { git archive origin/updates | tar -x -C out }
+          $setup = Get-ChildItem publish\TGuard-Setup-*.exe | Select-Object -First 1
+          ./publish/cli/tguard.exe publish-app $setup.FullName $version out
+          if ($LASTEXITCODE -ne 0) { throw 'publish-app failed' }
+          Set-Location out
+          git init -q -b updates
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Release $version"
+          git push -q -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" updates
 
       - name: GitHub release
         if: startsWith(github.ref, 'refs/tags/v')

@@ -1,0 +1,3 @@
+# TGuard's own list of scam sites aimed at Portuguese users.
+# One entry per line: a full URL, or "host:example.com" to block a whole domain.
+# Merged into urls.txt by the hourly feeds workflow.

@@ -26,6 +26,8 @@
                     <Border Height="1" Background="{StaticResource Line}" />
                     <CheckBox x:Name="AutoUpdate" Style="{StaticResource Switch}" Content="{s:Tr set.autoupdate}" Margin="0,12" />
                     <Border Height="1" Background="{StaticResource Line}" />
+                    <CheckBox x:Name="AutoInstall" Style="{StaticResource Switch}" Content="{s:Tr set.autoinstall}" Margin="0,12" />
+                    <Border Height="1" Background="{StaticResource Line}" />
                     <StackPanel Margin="0,12">
                         <TextBlock Text="{s:Tr set.abusekey}" Style="{StaticResource Label}" FontFamily="{StaticResource Body}" />
                         <TextBlock Text="{s:Tr set.abusekey.note}" Style="{StaticResource Small}" Margin="0,2,0,8" />

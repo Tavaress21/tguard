@@ -1,0 +1,1 @@
+# Extra SHA-256 hashes, one per line: "sha256;Threat.Name"

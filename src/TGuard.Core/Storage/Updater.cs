@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using TGuard.Core.Engine;
 using TGuard.Core.Rules;
+using TGuard.Core.Security;
 
 namespace TGuard.Core.Storage;
 
@@ -38,20 +39,30 @@ public sealed class Updater
     {
         var report = new UpdateReport();
 
-        // 1) TGuard update server (manifest.json lists the files)
+        // 1) TGuard update server: feeds.json lists the files with their hashes and is signed
         if (!string.IsNullOrWhiteSpace(settings.UpdateUrl))
         {
             try
             {
-                var baseUri = new Uri(settings.UpdateUrl.EndsWith('/') ? settings.UpdateUrl : settings.UpdateUrl + "/");
-                var manifest = JsonSerializer.Deserialize<UpdateManifest>(await GetTextAsync(new Uri(baseUri, "manifest.json"), null, ct),
-                    new JsonSerializerOptions(JsonSerializerDefaults.Web)) ?? new();
-                if (manifest.Signatures is { Length: > 0 })
-                    report.SignaturesAdded += AddHashes(engine, await GetTextAsync(new Uri(baseUri, manifest.Signatures), null, ct), "TGuard");
-                if (manifest.Urls is { Length: > 0 })
-                    report.UrlsAdded += AddUrls(engine, await GetTextAsync(new Uri(baseUri, manifest.Urls), null, ct));
-                if (manifest.Rules is { Length: > 0 })
-                    report.RulesLoaded += InstallRules(engine, await GetTextAsync(new Uri(baseUri, manifest.Rules), null, ct));
+                var baseUri = UpdateBase(settings.UpdateUrl);
+                var manifestBytes = await GetBytesAsync(new Uri(baseUri, "feeds.json"), ct);
+                var sig = await GetBytesAsync(new Uri(baseUri, "feeds.json.sig"), ct);
+                if (!UpdateSigning.Verify(manifestBytes, sig, settings.ExtraUpdateKeys.Prepend(UpdateSigning.FeedsKey)))
+                    throw new InvalidDataException("feeds.json signature is not valid");
+                var manifest = JsonSerializer.Deserialize<FeedsManifest>(manifestBytes, Web) ?? new();
+
+                async Task<string?> Fetch(FeedFile? f)
+                {
+                    if (f is null || string.IsNullOrEmpty(f.Name)) return null;
+                    var bytes = await GetBytesAsync(new Uri(baseUri, f.Name), ct);
+                    if (!SignatureDatabase.Sha256Hex(bytes).Equals(f.Sha256, StringComparison.OrdinalIgnoreCase))
+                        throw new InvalidDataException($"{f.Name}: hash does not match feeds.json");
+                    return Encoding.UTF8.GetString(bytes);
+                }
+
+                if (await Fetch(manifest.Signatures) is string sigs) report.SignaturesAdded += AddHashes(engine, sigs, "TGuard");
+                if (await Fetch(manifest.Urls) is string urls) report.UrlsAdded += AddUrls(engine, urls);
+                if (await Fetch(manifest.Rules) is string rules) report.RulesLoaded += InstallRules(engine, rules);
                 report.Sources.Add("TGuard");
             }
             catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or UriFormatException or FormatException or ArgumentException or InvalidDataException)
@@ -88,6 +99,23 @@ public sealed class Updater
         if (report.UrlsAdded > 0) engine.Blocklist.Save(TGuardPaths.UrlBlocklist);
         if (report.SignaturesAdded > 0 || report.UrlsAdded > 0 || report.RulesLoaded > 0) engine.InvalidateCache();
         return report;
+    }
+
+    private static readonly JsonSerializerOptions Web = new(JsonSerializerDefaults.Web);
+
+    /// <summary>HTTPS only (plain HTTP is accepted for localhost, used by the tests).</summary>
+    public static Uri UpdateBase(string url)
+    {
+        var u = new Uri(url.EndsWith('/') ? url : url + "/");
+        if (u.Scheme != Uri.UriSchemeHttps && !u.IsLoopback) throw new UriFormatException("update URL must use HTTPS");
+        return u;
+    }
+
+    public async Task<byte[]> GetBytesAsync(Uri uri, CancellationToken ct)
+    {
+        using var resp = await _http.GetAsync(uri, ct);
+        resp.EnsureSuccessStatusCode();
+        return await resp.Content.ReadAsByteArrayAsync(ct);
     }
 
     private async Task<string> GetTextAsync(Uri uri, string? authKey, CancellationToken ct)
@@ -167,10 +195,17 @@ public sealed class Updater
         return compiled.Count;
     }
 
-    private sealed class UpdateManifest
+    public sealed class FeedFile
     {
-        public string? Signatures { get; set; }
-        public string? Urls { get; set; }
-        public string? Rules { get; set; }
+        public string Name { get; set; } = "";
+        public string Sha256 { get; set; } = "";
+    }
+
+    public sealed class FeedsManifest
+    {
+        public DateTimeOffset Generated { get; set; }
+        public FeedFile? Signatures { get; set; }
+        public FeedFile? Urls { get; set; }
+        public FeedFile? Rules { get; set; }
     }
 }

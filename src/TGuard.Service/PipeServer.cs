@@ -148,6 +148,10 @@ public sealed class PipeServer : BackgroundService
             case "settings.set":
                 var s = req.Args?.Deserialize<TGuardSettings>(Protocol.Json);
                 if (s is null) return Response.Fail("invalid settings");
+                // where updates come from and which keys they're checked with can only be
+                // changed by editing settings.json as an administrator
+                s.UpdateUrl = _state.Settings.UpdateUrl;
+                s.ExtraUpdateKeys = _state.Settings.ExtraUpdateKeys;
                 _state.UpdateSettings(s);
                 return Response.Success(s);
 

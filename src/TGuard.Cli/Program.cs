@@ -40,6 +40,8 @@ return args[0] switch
     "update" or "atualizar" => Update(),
     "info" => Info(),
     "signature" => Signature(args.Skip(1).FirstOrDefault()),
+    "publish-feeds" => PublishFeeds(args.Skip(1).ToArray()),
+    "publish-app" => PublishApp(args.Skip(1).ToArray()),
     _ => Unknown(args[0]),
 };
 
@@ -158,6 +160,31 @@ int Signature(string? file)
     Console.WriteLine($"{sig.State}{(sig.Signer is null ? "" : $" ({sig.Signer})")}{(sig.ViaCatalog ? " via catalog" : "")}");
     var origin = FileContext.ReadWebOrigin(file);
     if (origin is not null) Console.WriteLine($"Zone {origin.ZoneId}, from {origin.HostUrl ?? origin.ReferrerUrl ?? "?"}");
+    return 0;
+}
+
+// Used by GitHub Actions to build the files served from the update server.
+//   tguard publish-feeds <outDir> [listsDir]     key: TGUARD_FEEDS_KEY, abuse.ch: ABUSECH_AUTH_KEY
+//   tguard publish-app <installer> <version> <outDir>   key: TGUARD_RELEASE_KEY
+int PublishFeeds(string[] a)
+{
+    var key = Environment.GetEnvironmentVariable("TGUARD_FEEDS_KEY");
+    if (string.IsNullOrWhiteSpace(key) || a.Length < 1) { Console.Error.WriteLine("Usage: publish-feeds <outDir> [listsDir] (needs TGUARD_FEEDS_KEY)"); return 2; }
+    var lists = a.Length > 1 && Directory.Exists(a[1]) ? a[1] : null;
+    string[] Read(string pattern) => lists is null ? Array.Empty<string>() : Directory.GetFiles(lists, pattern).Select(File.ReadAllText).ToArray();
+    var rulesFile = lists is null ? null : Path.Combine(lists, "rules.json");
+    var rules = rulesFile is not null && File.Exists(rulesFile) ? File.ReadAllText(rulesFile) : null;
+    Publisher.BuildFeedsAsync(a[0], key, Environment.GetEnvironmentVariable("ABUSECH_AUTH_KEY"),
+        Read("*.hashes.txt"), Read("*.urls.txt"), rules, log: Console.WriteLine).GetAwaiter().GetResult();
+    return 0;
+}
+
+int PublishApp(string[] a)
+{
+    var key = Environment.GetEnvironmentVariable("TGUARD_RELEASE_KEY");
+    if (string.IsNullOrWhiteSpace(key) || a.Length < 3) { Console.Error.WriteLine("Usage: publish-app <installer> <version> <outDir> (needs TGUARD_RELEASE_KEY)"); return 2; }
+    var r = Publisher.PublishApp(a[0], a[1], a.Length > 3 ? a[3] : "", a[2], key);
+    Console.WriteLine($"app.json: {r.Version} {r.File} {r.Sha256}");
     return 0;
 }
 

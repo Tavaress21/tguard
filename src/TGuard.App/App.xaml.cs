@@ -57,6 +57,15 @@ public partial class App : Application
         _tray = new TrayIcon(ShowMain, () => { ShowMain(); win.Navigate("scan"); _ = Backend.StartScanAsync("quick"); }, ExitApp);
         Backend.Notified += n =>
         {
+            if (n.Kind == "app-update")
+            {
+                Dispatcher.BeginInvoke(() =>
+                {
+                    _tray?.Notify(n.Title, n.Message, false);
+                    RelaunchAfterUpdate();
+                });
+                return;
+            }
             if (n.Kind is "threat" or "scan-done" or "usb" or "usb-done" && Backend.NotificationsEnabled && !string.IsNullOrEmpty(n.Title))
                 Dispatcher.BeginInvoke(() => _tray?.Notify(n.Title, n.Message, n.Kind == "threat"));
         };
@@ -73,6 +82,26 @@ public partial class App : Application
         Thread.CurrentThread.CurrentUICulture = c;
         FrameworkElement.LanguageProperty.OverrideMetadata(typeof(FrameworkElement),
             new FrameworkPropertyMetadata(System.Windows.Markup.XmlLanguage.GetLanguage(c.IetfLanguageTag)));
+    }
+
+    /// <summary>
+    /// The installer closes this app while it updates. A small hidden PowerShell waits for the
+    /// new version's service to come back and then starts the app again in the tray.
+    /// </summary>
+    private void RelaunchAfterUpdate()
+    {
+        var exe = Environment.ProcessPath ?? "";
+        if (exe.Length == 0) return;
+        var script = $"$exe='{exe.Replace("'", "''")}'; Start-Sleep -Seconds 15; " +
+                     "for ($i = 0; $i -lt 60; $i++) { $s = Get-Service TGuard -ErrorAction SilentlyContinue; " +
+                     "if ($s -and $s.Status -eq 'Running' -and (Test-Path $exe) -and -not (Get-Process TGuard -ErrorAction SilentlyContinue)) " +
+                     "{ Start-Process $exe '--tray'; break }; Start-Sleep -Seconds 5 }";
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("powershell.exe",
+                $"-NoProfile -WindowStyle Hidden -Command \"{script}\"") { UseShellExecute = false, CreateNoWindow = true });
+        }
+        catch (Exception) { }
     }
 
     public void ShowMain()

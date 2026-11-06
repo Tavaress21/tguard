@@ -336,62 +336,133 @@ internal static class ProcessTests
 internal sealed class FakeHttp : System.Net.Http.HttpMessageHandler
 {
     private readonly Dictionary<string, string> _routes;
-    public FakeHttp(Dictionary<string, string> routes) => _routes = routes;
+    private readonly bool _binary;   // route values are base64 when true
+    public FakeHttp(Dictionary<string, string> routes, bool binary = false) { _routes = routes; _binary = binary; }
     protected override Task<System.Net.Http.HttpResponseMessage> SendAsync(System.Net.Http.HttpRequestMessage req, CancellationToken ct)
     {
-        var url = req.RequestUri!.ToString();
-        return Task.FromResult(_routes.TryGetValue(url, out var body)
-            ? new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new System.Net.Http.StringContent(body) }
-            : new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.NotFound));
+        if (!_routes.TryGetValue(req.RequestUri!.ToString(), out var body))
+            return Task.FromResult(new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.NotFound));
+        System.Net.Http.HttpContent content = _binary
+            ? new System.Net.Http.ByteArrayContent(Convert.FromBase64String(body))
+            : new System.Net.Http.StringContent(body);
+        return Task.FromResult(new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = content });
     }
 }
 
 internal static class UpdateTests
 {
-    [Test] static void FullUpdate()
+    [Test] static void AbuseChFeedsDirect()
     {
-        var h1 = new string('b', 64);
         var h2 = new string('c', 64);
         var http = new FakeHttp(new()
         {
-            ["https://tguard.example/updates/manifest.json"] = "{\"signatures\":\"sig.txt\",\"urls\":\"urls.txt\",\"rules\":\"rules.json\"}",
-            ["https://tguard.example/updates/sig.txt"] = $"# list\n{h1};Trojan.Test\n",
-            ["https://tguard.example/updates/urls.txt"] = "http://phish.example/login\nhost:mbway-reembolso.example\n",
-            ["https://tguard.example/updates/rules.json"] = "[{\"name\":\"Teste_Update\",\"description_pt\":\"x\",\"score\":90,\"strings\":{\"a\":{\"text\":\"TGUARD-UPDATE-MARKER\"}},\"condition\":\"any\"}]",
             [string.Format(Updater.MalwareBazaarRecent, "KEY123")] =
                 "# MalwareBazaar recent\n\"2026-11-06 10:00:00\",\"" + h2 + "\",\"md5\",\"sha1\",\"anon\",\"x.exe\",\"exe\",\"application/x-dosexec\",\"AgentTesla\",\"n/a\"\n",
             [Updater.UrlhausRecent] = "{\"query_status\":\"ok\",\"urls\":[{\"url\":\"http://mal.example/a.exe\",\"host\":\"mal.example\"}]}",
         });
-        var e = ScanEngine.CreateDefault(new TGuardSettings { UpdateUrl = "https://tguard.example/updates/", AbuseChAuthKey = "KEY123" });
-        e.UseWindowsContext = false;
+        var e = ScanEngine.CreateDefault(new TGuardSettings { UpdateUrl = "", AbuseChAuthKey = "KEY123" });
         var rep = new Updater(http).RunAsync(e, e.Settings).GetAwaiter().GetResult();
         Assert.Equal(0, rep.Errors.Count, string.Join(" | ", rep.Errors));
-        Assert.Equal(2, rep.SignaturesAdded);
-        Assert.Equal(3, rep.UrlsAdded);
-        Assert.Equal(1, rep.RulesLoaded);
-        Assert.Equal("Trojan.Test", e.Signatures.Lookup(h1));
         Assert.Equal("MalwareBazaar.AgentTesla", e.Signatures.Lookup(h2));
-        Assert.True(e.Urls.Analyze("https://mbway-reembolso.example/pagar").Any(f => f.Score == 90), "blocked host");
-        Assert.Equal(Verdict.Malicious, e.ScanBytes(Encoding.ASCII.GetBytes("xx TGUARD-UPDATE-MARKER xx"), "a.txt").Verdict);
-        // persisted for the next start
-        Assert.True(new UrlBlocklist(TGuardPaths.UrlBlocklist).Contains("http://mal.example/a.exe"));
-        Assert.Equal("Trojan.Test", new SignatureDatabase(TGuardPaths.Signatures).Lookup(h1));
-        File.Delete(Path.Combine(TGuardPaths.UserRules, "tguard-update.json"));
+        Assert.True(new UrlBlocklist(TGuardPaths.UrlBlocklist).Contains("http://mal.example/a.exe"), "not persisted");
     }
 
-    [Test] static void UpdateRejectsInvalidRules()
+    private static string Key(string name) => File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "keys", name));
+
+    private static Dictionary<string, string> Serve(string dir, string baseUrl)
     {
-        var http = new FakeHttp(new()
+        var routes = new Dictionary<string, string>();
+        foreach (var f in Directory.GetFiles(dir))
+            routes[baseUrl + Path.GetFileName(f)] = Convert.ToBase64String(File.ReadAllBytes(f));
+        return routes;
+    }
+
+    [Test] static void SignedFeedsEndToEnd()
+    {
+        var dir = Path.Combine(TGuardPaths.Root, "server-feeds");
+        var h1 = new string('b', 64);
+        Publisher.BuildFeedsAsync(dir, Key("test-feeds.key.pem"), null,
+            new[] { $"# own list\n{h1};Trojan.Test\n" }, new[] { "host:mbway-reembolso.example\nhttp://phish.example/login\n" },
+            "[{\"name\":\"Update_Test\",\"description_en\":\"x\",\"description_pt\":\"x\",\"score\":90,\"strings\":{\"a\":{\"text\":\"TGUARD-UPDATE-MARKER\"}},\"condition\":\"any\"}]")
+            .GetAwaiter().GetResult();
+
+        var settings = new TGuardSettings { UpdateUrl = "https://tguard.example/updates/", ExtraUpdateKeys = new() { Key("test-feeds.pub.pem") } };
+        var e = ScanEngine.CreateDefault(settings);
+        e.UseWindowsContext = false;
+        var rep = new Updater(new FakeHttp(Serve(dir, "https://tguard.example/updates/"), binary: true)).RunAsync(e, settings).GetAwaiter().GetResult();
+        Assert.Equal(0, rep.Errors.Count, string.Join(" | ", rep.Errors));
+        Assert.Equal("Trojan.Test", e.Signatures.Lookup(h1));
+        Assert.True(e.Urls.Analyze("https://mbway-reembolso.example/pagar").Any(f => f.Score == 90), "blocked host");
+        Assert.Equal(1, rep.RulesLoaded);
+        Assert.Equal(Verdict.Malicious, e.ScanBytes(Encoding.ASCII.GetBytes("xx TGUARD-UPDATE-MARKER xx"), "a.txt").Verdict);
+        Assert.True(new UrlBlocklist(TGuardPaths.UrlBlocklist).Contains("http://phish.example/login"), "not persisted");
+        File.Delete(Path.Combine(TGuardPaths.UserRules, "tguard-update.json"));
+        e.ReloadRules();
+    }
+
+    [Test] static void TamperedFeedsAreRejected()
+    {
+        var dir = Path.Combine(TGuardPaths.Root, "server-tampered");
+        Publisher.BuildFeedsAsync(dir, Key("test-feeds.key.pem"), null, new[] { new string('d', 64) + ";Good" }, Array.Empty<string>(), null)
+            .GetAwaiter().GetResult();
+        File.AppendAllText(Path.Combine(dir, "signatures.txt"), new string('e', 64) + ";Injected\n");   // edited after signing
+        var settings = new TGuardSettings { UpdateUrl = "https://t.example/u/", ExtraUpdateKeys = new() { Key("test-feeds.pub.pem") } };
+        var e = ScanEngine.CreateDefault(settings);
+        var rep = new Updater(new FakeHttp(Serve(dir, "https://t.example/u/"), binary: true)).RunAsync(e, settings).GetAwaiter().GetResult();
+        Assert.True(rep.Errors.Any(x => x.Contains("hash")), string.Join(" | ", rep.Errors));
+        Assert.Equal(null, e.Signatures.Lookup(new string('e', 64)));
+
+        // a manifest signed with the wrong key is refused outright
+        var other = Path.Combine(TGuardPaths.Root, "server-wrongkey");
+        Publisher.BuildFeedsAsync(other, Key("test-release.key.pem"), null, new[] { new string('f', 64) + ";X" }, Array.Empty<string>(), null)
+            .GetAwaiter().GetResult();
+        rep = new Updater(new FakeHttp(Serve(other, "https://t.example/u/"), binary: true)).RunAsync(e, settings).GetAwaiter().GetResult();
+        Assert.True(rep.Errors.Any(x => x.Contains("signature")), string.Join(" | ", rep.Errors));
+        Assert.Equal(null, e.Signatures.Lookup(new string('f', 64)));
+    }
+
+    [Test] static void AppUpdateDetectedAndVerified()
+    {
+        var dir = Path.Combine(TGuardPaths.Root, "server-app");
+        var installer = Path.Combine(TGuardPaths.Root, "TGuard-Setup-99.0.0.exe");
+        File.WriteAllBytes(installer, Encoding.ASCII.GetBytes("pretend installer"));
+        Publisher.PublishApp(installer, "99.0.0", "test", dir, Key("test-release.key.pem"));
+        var settings = new TGuardSettings { UpdateUrl = "https://t.example/u/", ExtraUpdateKeys = new() { Key("test-release.pub.pem") } };
+        var up = new AppUpdater(new FakeHttp(Serve(dir, "https://t.example/u/"), binary: true));
+        var rel = up.CheckAsync(settings).GetAwaiter().GetResult();
+        Assert.True(rel is not null && rel.Version == "99.0.0", "newer version not found");
+        var path = up.DownloadAsync(settings, rel!, Path.Combine(TGuardPaths.Root, "dl")).GetAwaiter().GetResult();
+        Assert.Equal("pretend installer", File.ReadAllText(path));
+
+        // an older version is not offered
+        Publisher.PublishApp(installer, "0.0.1", "old", dir, Key("test-release.key.pem"));
+        Assert.Equal(null, new AppUpdater(new FakeHttp(Serve(dir, "https://t.example/u/"), binary: true)).CheckAsync(settings).GetAwaiter().GetResult());
+
+        // the feeds key must not be able to sign a release
+        var forged = Path.Combine(TGuardPaths.Root, "server-forged");
+        Publisher.PublishApp(installer, "99.0.0", "evil", forged, Key("test-feeds.key.pem"));
+        var threw = false;
+        try { new AppUpdater(new FakeHttp(Serve(forged, "https://t.example/u/"), binary: true)).CheckAsync(settings).GetAwaiter().GetResult(); }
+        catch (InvalidDataException) { threw = true; }
+        Assert.True(threw, "a release signed with the wrong key was accepted");
+
+        // plain HTTP is refused for anything but localhost
+        threw = false;
+        try { Updater.UpdateBase("http://tguard.example/updates/"); } catch (UriFormatException) { threw = true; }
+        Assert.True(threw, "plain http accepted");
+        Updater.UpdateBase("http://127.0.0.1:8080/updates/");
+    }
+
+    [Test] static void PublisherRefusesBrokenRules()
+    {
+        var threw = false;
+        try
         {
-            ["https://t.example/u/manifest.json"] = "{\"rules\":\"r.json\"}",
-            ["https://t.example/u/r.json"] = "[{\"name\":\"Partida\",\"score\":90,\"strings\":{\"a\":{\"regex\":\"([\"}},\"condition\":\"any\"}]",
-        });
-        var e = ScanEngine.CreateDefault(new TGuardSettings { UpdateUrl = "https://t.example/u/" });
-        var before = e.Rules.Rules.Count;
-        var rep = new Updater(http).RunAsync(e, e.Settings).GetAwaiter().GetResult();
-        Assert.True(rep.Errors.Any(x => x.StartsWith("TGuard")), "should report an error");
-        Assert.Equal(before, e.Rules.Rules.Count);
-        Assert.True(!File.Exists(Path.Combine(TGuardPaths.UserRules, "tguard-update.json")), "installed an invalid rule");
+            Publisher.BuildFeedsAsync(Path.Combine(TGuardPaths.Root, "server-bad"), Key("test-feeds.key.pem"), null, Array.Empty<string>(), Array.Empty<string>(),
+                "[{\"name\":\"Broken\",\"score\":90,\"strings\":{\"a\":{\"regex\":\"([\"}},\"condition\":\"any\"}]").GetAwaiter().GetResult();
+        }
+        catch (ArgumentException) { threw = true; }
+        Assert.True(threw, "broken rule was published");
     }
 
     [Test] static void OfflineUpdateDoesNotCrash()
