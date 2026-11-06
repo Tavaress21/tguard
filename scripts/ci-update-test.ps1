@@ -43,9 +43,33 @@ $env:TGUARD_FEEDS_KEY = Get-Content tests\TGuard.Tests\keys\test-feeds.key.pem -
 ./publish/cli/tguard.exe publish-feeds (Join-Path $serve 'updates') server\lists
 Remove-Item publish\TGuard-Setup-99.0.0.exe
 
-$server = Start-Process python -ArgumentList '-m', 'http.server', '8765', '--bind', '127.0.0.1', '--directory', $serve -PassThru -WindowStyle Hidden
+# tiny static file server on loopback
+$server = Start-Job -ArgumentList $serve -ScriptBlock {
+    param($root)
+    $listener = New-Object System.Net.HttpListener
+    $listener.Prefixes.Add('http://127.0.0.1:8765/')
+    $listener.Start()
+    while ($listener.IsListening) {
+        $ctx = $listener.GetContext()
+        $rel = [Uri]::UnescapeDataString($ctx.Request.Url.AbsolutePath).TrimStart('/') -replace '/', '\'
+        $path = Join-Path $root $rel
+        if (-not $rel.Contains('..') -and (Test-Path $path -PathType Leaf)) {
+            $bytes = [IO.File]::ReadAllBytes($path)
+            $ctx.Response.ContentLength64 = $bytes.Length
+            $ctx.Response.OutputStream.Write($bytes, 0, $bytes.Length)
+        } else {
+            $ctx.Response.StatusCode = 404
+        }
+        $ctx.Response.Close()
+    }
+}
 try {
-    Start-Sleep 2
+    $up = $false
+    for ($i = 0; $i -lt 30 -and -not $up; $i++) {
+        Start-Sleep 1
+        try { $up = (Invoke-WebRequest 'http://127.0.0.1:8765/updates/app.json' -UseBasicParsing).StatusCode -eq 200 } catch { }
+    }
+    if (-not $up) { Receive-Job $server; throw 'Local update server did not start.' }
 
     # 3) point the installed service at the local server (admin-only settings)
     $settingsPath = "$env:ProgramData\TGuard\settings.json"
@@ -74,7 +98,8 @@ try {
     Write-Host 'Auto-update OK: 99.0.0 installed by the service and protection is running again.'
 }
 finally {
-    Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue
+    Stop-Job $server -ErrorAction SilentlyContinue
+    Remove-Job $server -Force -ErrorAction SilentlyContinue
     $u = Join-Path $env:ProgramFiles 'TGuard\unins000.exe'
     if (Test-Path $u) { Start-Process $u -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait }
 }
