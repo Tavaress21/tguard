@@ -227,7 +227,12 @@ public sealed class RansomwareGuard : BackgroundService
                 if (started < since || p.Id == Environment.ProcessId) continue;
                 var exe = ImagePathOf(p.Id);
                 if (exe is null || IsCritical(exe)) continue;
-                if (CommandLineAnalyzer.ScriptHosts.Contains(Path.GetFileName(exe)) || !IsTrustedImage(exe)) yield return (p.Id, exe);
+                var name = Path.GetFileName(exe);
+                if (CommandLineAnalyzer.ScriptHosts.Contains(name))
+                {
+                    if (CommandLineOf(p.Id) is string cmd && CommandLineAnalyzer.Analyze(_state.Engine, name, cmd).Score >= 40) yield return (p.Id, exe);
+                }
+                else if (!IsTrustedImage(exe)) yield return (p.Id, exe);
             }
         }
     }
@@ -243,6 +248,18 @@ public sealed class RansomwareGuard : BackgroundService
         }
         catch (Exception) { }
         return FileContext.VerifySignature(exe).State == SignatureState.Valid;
+    }
+
+    private static string? CommandLineOf(int pid)
+    {
+        try
+        {
+            using var searcher = new System.Management.ManagementObjectSearcher($"SELECT CommandLine FROM Win32_Process WHERE ProcessId = {pid}");
+            foreach (System.Management.ManagementObject o in searcher.Get())
+                using (o) return o["CommandLine"] as string;
+        }
+        catch (Exception) { }
+        return null;
     }
 
     [DllImport("kernel32.dll", SetLastError = true)]

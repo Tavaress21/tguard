@@ -105,6 +105,46 @@ try {
     $ok = Start-Process -FilePath powershell.exe -ArgumentList @('-NoProfile', '-Command', 'Start-Sleep -Seconds 6') -PassThru
     Start-Sleep -Seconds 3
     if ($ok.HasExited) { throw 'Process guard killed a harmless PowerShell (false positive).' }
+    $docs = [Environment]::GetFolderPath('MyDocuments')
+    $canary = Join-Path $docs '!tguard-protegido.docx'
+    if (-not (Test-Path -LiteralPath $canary)) { throw 'Ransomware decoy file was not created.' }
+    $attr = (Get-Item -LiteralPath $canary -Force).Attributes
+    if (-not ($attr -band [IO.FileAttributes]::Hidden)) { throw 'Ransomware decoy file is not hidden.' }
+    [IO.File]::WriteAllBytes($canary, [byte[]](1..200))
+    $rw = $null
+    for ($i = 0; $i -lt 15 -and -not $rw; $i++) {
+        Start-Sleep -Seconds 1
+        $rw = @((Send-TGuard 'events').data) | Where-Object { $_.source -eq 'ransomware' } | Select-Object -First 1
+    }
+    if (-not $rw) { throw 'Changing a ransomware decoy was not detected.' }
+    Write-Host "Ransomware: $($rw.headline) - $($rw.reasons -join ' | ')"
+    if ($PID -and -not (Get-Process -Id $PID -ErrorAction SilentlyContinue)) { throw 'The test shell was killed.' }
+
+    $burstDir = Join-Path $docs 'tguard-burst-test'
+    New-Item -ItemType Directory -Force -Path $burstDir | Out-Null
+    1..20 | ForEach-Object { Set-Content -Path (Join-Path $burstDir "doc$_.docx") -Value "file $_" -Encoding ascii }
+    Start-Sleep -Seconds 6
+    $before = @(@((Send-TGuard 'events').data) | Where-Object { $_.source -eq 'ransomware' }).Count
+    Get-ChildItem $burstDir -Filter *.docx | ForEach-Object { Rename-Item $_.FullName ($_.Name + '.lockbit') }
+    $after = $before
+    for ($i = 0; $i -lt 15 -and $after -le $before; $i++) {
+        Start-Sleep -Seconds 1
+        $after = @(@((Send-TGuard 'events').data) | Where-Object { $_.source -eq 'ransomware' }).Count
+    }
+    if ($after -le $before) { throw 'Mass encryption (rename burst) was not detected.' }
+    Remove-Item $burstDir -Recurse -Force
+
+    $normalDir = Join-Path $docs 'tguard-normal-test'
+    New-Item -ItemType Directory -Force -Path $normalDir | Out-Null
+    Start-Sleep -Seconds 6
+    1..30 | ForEach-Object { Set-Content -Path (Join-Path $normalDir "notes$_.txt") -Value "note $_" -Encoding ascii }
+    Get-ChildItem $normalDir -Filter *.txt | ForEach-Object { Rename-Item $_.FullName ($_.BaseName + '.md') }
+    Get-ChildItem $normalDir | Remove-Item -Force
+    Start-Sleep -Seconds 4
+    $final = @(@((Send-TGuard 'events').data) | Where-Object { $_.source -eq 'ransomware' }).Count
+    if ($final -ne $after) { throw 'Normal file activity was reported as ransomware (false positive).' }
+    Remove-Item $normalDir -Recurse -Force
+
     Write-Host 'Service OK.' -ForegroundColor Green
 }
 finally {
