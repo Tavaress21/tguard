@@ -585,6 +585,17 @@ internal static class EmailTests
         Assert.Equal(1, r.BadAttachments.Count);
     }
 
+    [Test] static void RegionalSendersAreNotSpoofing()
+    {
+        foreach (var from in new[] { "\"Amazon.es\" <confirmar-envio@amazon.es>", "\"Microsoft\" <account-security-noreply@accountprotection.microsoft.com>",
+                                     "\"CTT\" <noreply@ctt.pt>", "\"PayPal\" <service@paypal.pt>" })
+        {
+            var r = EmailScanner.SenderFindings(MimeMessage.Parse(Message(from, "x", "<p>x</p>")));
+            Assert.Equal(0, r.Count, from + ": " + string.Join(" | ", r.Select(f => f.Message)));
+        }
+        Assert.Equal(1, EmailScanner.SenderFindings(MimeMessage.Parse(Message("\"CTT Expresso\" <aviso@entregas-pt.com>", "x", "<p>x</p>"))).Count);
+    }
+
     [Test] static void CleanEmailStaysClean()
     {
         var raw = Message("\"Caixa Geral de Depósitos\" <info@cgd.pt>", "Extrato", "<a href=\"https://www.cgd.pt/extrato\">Ver extrato</a>");
@@ -693,6 +704,36 @@ internal static class UrlTests
     [Test] static void LegitLinkMbway() => Assert.Equal(0, U.Analyze("https://www.mbway.pt/").Count);
     [Test] static void AnchorTextMismatch() => Assert.True(U.Analyze("https://evil.example/x", "www.millenniumbcp.pt").Any(f => f.Score == 40));
     [Test] static void IpAddressUrl() => Assert.True(U.Analyze("http://185.22.1.9/cgd/login").Sum(f => f.Score) >= 45);
+    [Test] static void OfficialSitesAreNotFlagged()
+    {
+        foreach (var u in new[]
+        {
+            "https://www.amazon.es/dp/123", "https://login.microsoftonline.com/common/oauth2", "https://accounts.google.pt/signin",
+            "https://www.minhasfinancas.pt/login", "https://mainstream.com/", "https://apply.com/", "https://www.pineapple.pt/",
+            "https://www.paypal.com/signin", "https://www.santander.es/", "https://store.steampowered.com/login",
+            "https://www.continente.pt/", "https://supercontinente.pt/", "https://www.portaldasfinancas.gov.pt/pt/home.action",
+            "https://www.office.com/", "https://outlook.live.com/mail/", "https://www.youtube.com/watch?v=1",
+        })
+        {
+            var f = U.Analyze(u);
+            Assert.True(ScanEngine.Combine(f.Select(x => x.Score)) < 40, $"{u}: {string.Join(" | ", f.Select(x => x.Message))}");
+        }
+    }
+
+    [Test] static void ImitationsAreFlagged()
+    {
+        foreach (var u in new[]
+        {
+            "https://mbway-reembolso.com/login", "https://mbway.com/pagar", "https://ctt-encomendas.top/pagar", "https://seg-social-apoio.com/",
+            "https://millenium-bcp.com/entrar", "http://amazon-pagamentos.com/verify", "https://secure-paypal.com.verify-account.xyz/",
+            "https://portaldasfinancas-reembolso.com/", "https://caixageral-acesso.top/entrar", "https://paypa1.com/login",
+        })
+        {
+            var f = U.Analyze(u);
+            Assert.True(f.Count > 0, $"{u} not flagged");
+        }
+    }
+
     [Test] static void ExtractLinks()
     {
         var links = UrlAnalyzer.ExtractLinks(null, "<p><a href=\"https://a.example/x\">clica <b>aqui</b></a></p>");

@@ -166,7 +166,7 @@ public sealed class EmailGuard : BackgroundService
         {
             ct.ThrowIfCancellationRequested();
             var size = await imap.SizeAsync(uid, ct);
-            if (size is > 0 and <= MaxMessageBytes && await imap.FetchAsync(uid, ct) is byte[] raw)
+            if (size <= MaxMessageBytes && await imap.FetchAsync(uid, ct) is byte[] raw && raw.Length <= MaxMessageBytes)
             {
                 account.Scanned++;
                 if (await Task.Run(() => Inspect(account, raw, ct), ct) is { } verdict)

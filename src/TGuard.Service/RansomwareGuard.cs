@@ -165,8 +165,8 @@ public sealed class RansomwareGuard : BackgroundService
 
         var suspects = new Dictionary<int, string>();
         foreach (var pid in RestartManager.ProcessesUsing(trigger))
-            if (ImagePathOf(pid) is string exe && !IsTrustedImage(exe)) suspects[pid] = exe;
-        foreach (var (pid, exe) in RecentUntrustedProcesses(TimeSpan.FromMinutes(30))) suspects.TryAdd(pid, exe);
+            if (pid != Environment.ProcessId && ImagePathOf(pid) is string exe && !IsCritical(exe)) suspects[pid] = exe;
+        foreach (var (pid, exe) in RecentSuspects(TimeSpan.FromMinutes(30))) suspects.TryAdd(pid, exe);
 
         var stopped = new List<string>();
         foreach (var (pid, exe) in suspects)
@@ -180,9 +180,10 @@ public sealed class RansomwareGuard : BackgroundService
             catch (ArgumentException) { }
             catch (Exception ex) { _log.LogWarning(ex, "Could not stop {Exe}", exe); continue; }
             stopped.Add(Path.GetFileName(exe));
+            var isolate = !CommandLineAnalyzer.ScriptHosts.Contains(Path.GetFileName(exe)) && !IsTrustedImage(exe);
             var r = new ScanResult { Name = exe, Score = 100, Verdict = Verdict.Malicious, ThreatName = "TGuard.Ransomware.Behavior" };
             r.Findings.Add(new Finding(100, reason, "ransomware"));
-            _state.Handle(r, "ransomware", extraAction: Loc.Pick("Processo terminado", "Process terminated"));
+            _state.Handle(r, "ransomware", allowQuarantine: isolate, extraAction: Loc.Pick("Processo terminado", "Process terminated"));
         }
 
         if (stopped.Count == 0)
@@ -202,7 +203,19 @@ public sealed class RansomwareGuard : BackgroundService
         lock (_watchers) foreach (var dir in _folders) EnsureCanaries(dir);
     }
 
-    private IEnumerable<(int Pid, string Exe)> RecentUntrustedProcesses(TimeSpan window)
+    private static readonly HashSet<string> CriticalNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "explorer.exe", "svchost.exe", "csrss.exe", "wininit.exe", "winlogon.exe", "lsass.exe", "services.exe", "smss.exe",
+        "dwm.exe", "System", "SearchIndexer.exe", "SearchProtocolHost.exe", "SearchFilterHost.exe", "MsMpEng.exe",
+        "MpDefenderCoreService.exe", "OneDrive.exe", "FileCoAuth.exe", "SgrmBroker.exe", "audiodg.exe", "fontdrvhost.exe",
+        "sihost.exe", "taskhostw.exe", "RuntimeBroker.exe", "ShellExperienceHost.exe", "StartMenuExperienceHost.exe",
+    };
+
+    private bool IsCritical(string exe) =>
+        CriticalNames.Contains(Path.GetFileName(exe))
+        || exe.StartsWith(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..")), StringComparison.OrdinalIgnoreCase);
+
+    private IEnumerable<(int Pid, string Exe)> RecentSuspects(TimeSpan window)
     {
         var since = DateTime.Now - window;
         foreach (var p in Process.GetProcesses())
@@ -213,8 +226,8 @@ public sealed class RansomwareGuard : BackgroundService
                 try { started = p.StartTime; } catch (Exception) { continue; }
                 if (started < since || p.Id == Environment.ProcessId) continue;
                 var exe = ImagePathOf(p.Id);
-                if (exe is null || IsTrustedImage(exe)) continue;
-                yield return (p.Id, exe);
+                if (exe is null || IsCritical(exe)) continue;
+                if (CommandLineAnalyzer.ScriptHosts.Contains(Path.GetFileName(exe)) || !IsTrustedImage(exe)) yield return (p.Id, exe);
             }
         }
     }

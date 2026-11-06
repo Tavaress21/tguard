@@ -71,7 +71,9 @@ public sealed class PipeServer : BackgroundService
                 try
                 {
                     var req = JsonSerializer.Deserialize<Request>(line, Protocol.Json) ?? new Request();
-                    if (Privileged.Contains(req.Cmd) && !ClientVerifier.IsTrustedClient(pipe, out var who))
+                    var privileged = Privileged.Contains(req.Cmd)
+                        || (req.Cmd == "scan.start" && req.Args?["type"]?.GetValue<string>() == "custom");
+                    if (privileged && !ClientVerifier.IsTrustedClient(pipe, out var who))
                     {
                         _log.LogWarning("Rejected '{Cmd}' from untrusted client ({Who})", req.Cmd, who);
                         resp = Response.Fail("ACCESS_DENIED: only the installed TGuard app can change protection settings.");

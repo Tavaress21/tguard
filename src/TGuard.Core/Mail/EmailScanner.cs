@@ -67,13 +67,17 @@ public static class EmailScanner
         var reg = UrlAnalyzer.RegisteredDomain(domain);
         var display = msg.FromDisplayName.ToLowerInvariant().Replace(" ", "").Replace("-", "");
 
-        foreach (var (brand, official) in UrlAnalyzer.Brands)
+        var tokens = System.Text.RegularExpressions.Regex.Split(msg.FromDisplayName.ToLowerInvariant(), @"[^a-z0-9]+");
+        if (!UrlAnalyzer.IsOfficialHost(domain))
         {
-            var b = brand.Replace("-", "");
-            if (b.Length < 5 || !display.Contains(b)) continue;
-            if (reg == official || domain.EndsWith("." + official, StringComparison.OrdinalIgnoreCase)) break;
-            list.Add(new Finding(35, Loc.T("mail.spoof", msg.FromDisplayName, from, official), "email"));
-            break;
+            foreach (var (brand, official) in UrlAnalyzer.Brands)
+            {
+                var b = brand.Replace("-", "");
+                var hit = b.Length >= 5 ? display.Contains(b) : tokens.Contains(b);
+                if (!hit) continue;
+                list.Add(new Finding(35, Loc.T("mail.spoof", msg.FromDisplayName, from, official), "email"));
+                break;
+            }
         }
 
         if (display.Contains('@'))

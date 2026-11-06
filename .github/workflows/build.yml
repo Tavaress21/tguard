@@ -30,6 +30,9 @@ jobs:
       - name: Engine tests
         run: dotnet run --project tests/TGuard.Tests -c Release --no-build
 
+      - name: Browser extension tests
+        run: node tests/browser/extension.test.mjs
+
       - name: Publish (win-x64)
         shell: pwsh
         run: |

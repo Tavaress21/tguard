@@ -37,13 +37,23 @@ public sealed class ServiceState
         SettingsChanged?.Invoke();
     }
 
+    private static readonly string WindowsDir = Environment.GetFolderPath(Environment.SpecialFolder.Windows).TrimEnd('\\') + "\\";
+
+    private static bool IsSystemFile(string path) =>
+        WindowsDir.Length > 1 && path.StartsWith(WindowsDir, StringComparison.OrdinalIgnoreCase)
+        && !path.Contains("\\Temp\\", StringComparison.OrdinalIgnoreCase);
+
     public ThreatInfo? Handle(ScanResult r, string source, bool allowQuarantine = true, string? extraAction = null)
     {
         if (r.Error is not null || r.Verdict == Verdict.Clean) return null;
         var actions = new List<string>();
         if (extraAction is not null) actions.Add(extraAction);
         var blocked = extraAction is not null;
-        if (r.Verdict == Verdict.Malicious && Settings.AutoQuarantine && allowQuarantine && File.Exists(r.Name))
+        if (r.Verdict == Verdict.Malicious && Settings.AutoQuarantine && allowQuarantine && IsSystemFile(r.Name))
+        {
+            actions.Add(Loc.Pick("Não movido: ficheiro do Windows", "Not moved: Windows file"));
+        }
+        else if (r.Verdict == Verdict.Malicious && Settings.AutoQuarantine && allowQuarantine && File.Exists(r.Name))
         {
             try
             {
