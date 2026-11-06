@@ -60,7 +60,6 @@ internal static class Assert
 
 internal static class Samples
 {
-    // Built at runtime so the source file itself isn't flagged by AV products.
     public static byte[] Eicar() => Encoding.ASCII.GetBytes(string.Concat(
         "X5O!P%@AP[4\\PZX54(P^)7CC)7}$", "EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*"));
 
@@ -190,7 +189,6 @@ internal static class EngineTests
 
     [Test] static void LegitCommandPromptShortcut()
     {
-        // A plain Command Prompt shortcut is on lots of PCs and must not alert.
         var lnk = new byte[] { 0x4C, 0, 0, 0, 0x01, 0x14, 0x02, 0x00 }.Concat(new byte[100])
             .Concat(Encoding.Unicode.GetBytes("%windir%\\system32\\cmd.exe")).ToArray();
         Assert.Equal(Verdict.Clean, E.ScanBytes(lnk, "Command Prompt.lnk").Verdict);
@@ -215,9 +213,9 @@ internal static class EngineTests
         File.WriteAllText(f, "vssadmin delete shadows /all /quiet");
         var a = e.ScanFile(f);
         Assert.True(ReferenceEquals(a, e.ScanFile(f)), "should come from the cache");
-        trust.Add(a.Sha256, f);                      // trusting clears the cache
+        trust.Add(a.Sha256, f);
         Assert.Equal(Verdict.Clean, e.ScanFile(f).Verdict);
-        File.WriteAllText(f, "echo hello");            // a modified file gets rescanned
+        File.WriteAllText(f, "echo hello");
         Assert.Equal(Verdict.Clean, e.ScanFile(f).Verdict);
     }
 
@@ -237,12 +235,10 @@ internal static class EngineTests
         e.ApplyOrigin(js, TGuard.Core.Security.FileContext.ParseZoneIdentifier("ZoneId=3\nHostUrl=http://185.22.1.9/cgd/invoice.js"));
         Assert.True(js.Verdict != Verdict.Clean, string.Join(" | ", js.AllReasons()));
 
-        // a normal document from a normal site stays clean
         var txt = e.ScanBytes(Encoding.ASCII.GetBytes("meeting notes"), "notes.txt");
         e.ApplyOrigin(txt, TGuard.Core.Security.FileContext.ParseZoneIdentifier("ZoneId=3\nHostUrl=https://www.google.com/x"));
         Assert.Equal(Verdict.Clean, txt.Verdict);
 
-        // an installer from a legit site stays clean too
         var exe = e.ScanBytes(File.ReadAllBytes(typeof(object).Assembly.Location), "setup.exe");
         e.ApplyOrigin(exe, TGuard.Core.Security.FileContext.ParseZoneIdentifier("ZoneId=3\nHostUrl=https://github.com/x/releases/setup.exe"));
         Assert.True(exe.Verdict != Verdict.Malicious);
@@ -259,7 +255,6 @@ internal static class EngineTests
 
     [Test] static void RealExecutableNoFalsePositive()
     {
-        // The .NET runtime is a legit PE: it must parse and must not be flagged.
         var path = typeof(object).Assembly.Location;
         var data = File.ReadAllBytes(path);
         var pe = PeFile.TryParse(data, out var err);
@@ -337,7 +332,7 @@ internal static class ProcessTests
 internal sealed class FakeHttp : System.Net.Http.HttpMessageHandler
 {
     private readonly Dictionary<string, string> _routes;
-    private readonly bool _binary;   // route values are base64 when true
+    private readonly bool _binary;
     public FakeHttp(Dictionary<string, string> routes, bool binary = false) { _routes = routes; _binary = binary; }
     protected override Task<System.Net.Http.HttpResponseMessage> SendAsync(System.Net.Http.HttpRequestMessage req, CancellationToken ct)
     {
@@ -456,14 +451,13 @@ internal static class UpdateTests
         var dir = Path.Combine(TGuardPaths.Root, "server-tampered");
         Publisher.BuildFeedsAsync(dir, Key("test-feeds.key.pem"), null, new[] { new string('d', 64) + ";Good" }, Array.Empty<string>(), null)
             .GetAwaiter().GetResult();
-        File.AppendAllText(Path.Combine(dir, "signatures.txt"), new string('e', 64) + ";Injected\n");   // edited after signing
+        File.AppendAllText(Path.Combine(dir, "signatures.txt"), new string('e', 64) + ";Injected\n");
         var settings = new TGuardSettings { UpdateUrl = "https://t.example/u/", ExtraUpdateKeys = new() { Key("test-feeds.pub.pem") } };
         var e = ScanEngine.CreateDefault(settings);
         var rep = new Updater(new FakeHttp(Serve(dir, "https://t.example/u/"), binary: true)).RunAsync(e, settings).GetAwaiter().GetResult();
         Assert.True(rep.Errors.Any(x => x.Contains("hash")), string.Join(" | ", rep.Errors));
         Assert.Equal(null, e.Signatures.Lookup(new string('e', 64)));
 
-        // a manifest signed with the wrong key is refused outright
         var other = Path.Combine(TGuardPaths.Root, "server-wrongkey");
         Publisher.BuildFeedsAsync(other, Key("test-release.key.pem"), null, new[] { new string('f', 64) + ";X" }, Array.Empty<string>(), null)
             .GetAwaiter().GetResult();
@@ -485,11 +479,9 @@ internal static class UpdateTests
         var path = up.DownloadAsync(settings, rel!, Path.Combine(TGuardPaths.Root, "dl")).GetAwaiter().GetResult();
         Assert.Equal("pretend installer", File.ReadAllText(path));
 
-        // an older version is not offered
         Publisher.PublishApp(installer, "0.0.1", "old", dir, Key("test-release.key.pem"));
         Assert.Equal(null, new AppUpdater(new FakeHttp(Serve(dir, "https://t.example/u/"), binary: true)).CheckAsync(settings).GetAwaiter().GetResult());
 
-        // the feeds key must not be able to sign a release
         var forged = Path.Combine(TGuardPaths.Root, "server-forged");
         Publisher.PublishApp(installer, "99.0.0", "evil", forged, Key("test-feeds.key.pem"));
         var threw = false;
@@ -497,7 +489,6 @@ internal static class UpdateTests
         catch (InvalidDataException) { threw = true; }
         Assert.True(threw, "a release signed with the wrong key was accepted");
 
-        // plain HTTP is refused for anything but localhost
         threw = false;
         try { Updater.UpdateBase("http://tguard.example/updates/"); } catch (UriFormatException) { threw = true; }
         Assert.True(threw, "plain http accepted");

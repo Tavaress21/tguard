@@ -7,7 +7,6 @@
             <TextBlock Text="{s:Tr dash.title}" Style="{StaticResource PageTitle}" />
             <TextBlock Text="{s:Tr dash.sub}" Style="{StaticResource PageSubtitle}" Margin="0,4,0,22" />
 
-            <!-- Overall status -->
             <Border Style="{StaticResource CardBorder}" Padding="26,24">
                 <Border.Background>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
@@ -42,7 +41,6 @@
                 </Grid>
             </Border>
 
-            <!-- Tiles -->
             <UniformGrid Columns="4" Margin="-7,16,-7,0">
                 <Border Style="{StaticResource CardBorder}" Margin="7" Padding="18">
                     <DockPanel>
@@ -99,7 +97,6 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <!-- Recent activity -->
                 <Border Style="{StaticResource CardBorder}" Padding="22,20">
                     <StackPanel>
                         <DockPanel Margin="0,0,0,8">
@@ -138,7 +135,6 @@
                     </StackPanel>
                 </Border>
 
-                <!-- Engine -->
                 <Border Grid.Column="2" Style="{StaticResource CardBorder}" Padding="22,20" VerticalAlignment="Top">
                     <StackPanel>
                         <TextBlock Text="{s:Tr dash.engine}" Style="{StaticResource H2}" Margin="0,0,0,12" />

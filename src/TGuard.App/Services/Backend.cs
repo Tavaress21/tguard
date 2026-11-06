@@ -32,7 +32,6 @@ public sealed class Backend
 
     public Backend()
     {
-        // local mode keeps data in the user profile (no admin rights needed)
         if (!CanWrite(TGuardPaths.Root))
             TGuardPaths.Root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TGuard");
         TGuardPaths.Ensure();

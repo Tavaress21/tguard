@@ -4,13 +4,6 @@ using TGuard.Core.Engine;
 using TGuard.Core.Security;
 using TGuard.Core.Storage;
 
-// tguard - command line interface
-//   tguard scan <folder|file>... [--all] [--quarantine]
-//   tguard quarantine [list|restore <id>|delete <id>]
-//   tguard check
-//   tguard update
-//   tguard info
-
 TGuardPaths.Ensure();
 var settings = TGuardSettings.Load();
 Loc.Language = args.Contains("--pt") ? "pt" : "en";
@@ -163,9 +156,6 @@ int Signature(string? file)
     return 0;
 }
 
-// Used by GitHub Actions to build the files served from the update server.
-//   tguard publish-feeds <outDir> [listsDir]     key: TGUARD_FEEDS_KEY, abuse.ch: ABUSECH_AUTH_KEY
-//   tguard publish-app <installer> <version> <outDir>   key: TGUARD_RELEASE_KEY
 int PublishFeeds(string[] a)
 {
     var key = Environment.GetEnvironmentVariable("TGUARD_FEEDS_KEY");

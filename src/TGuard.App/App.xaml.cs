@@ -23,7 +23,6 @@ public partial class App : Application
         base.OnStartup(e);
         var args = e.Args;
 
-        // CI mode: render every page to PNG and exit.
         var selfTest = Array.IndexOf(args, "--selftest");
         if (selfTest >= 0)
         {
@@ -35,7 +34,6 @@ public partial class App : Application
             return;
         }
 
-        // Single instance: a second launch asks the first one to show its window.
         _single = new Mutex(true, @"Local\TGuard.App.Single", out var first);
         _showSignal = new EventWaitHandle(false, EventResetMode.AutoReset, @"Local\TGuard.App.Show");
         if (!first)
@@ -46,7 +44,6 @@ public partial class App : Application
         }
         new Thread(() => { while (_showSignal.WaitOne()) Dispatcher.Invoke(ShowMain); }) { IsBackground = true }.Start();
 
-        // Backend decides where data lives (service vs local mode) before settings are read
         Backend = new Backend();
         await Backend.ConnectAsync();
         Loc.Language = (await Backend.GetSettingsAsync()).Language;
@@ -84,10 +81,6 @@ public partial class App : Application
             new FrameworkPropertyMetadata(System.Windows.Markup.XmlLanguage.GetLanguage(c.IetfLanguageTag)));
     }
 
-    /// <summary>
-    /// The installer closes this app while it updates. A small hidden PowerShell waits for the
-    /// new version's service to come back and then starts the app again in the tray.
-    /// </summary>
     private void RelaunchAfterUpdate()
     {
         var exe = Environment.ProcessPath ?? "";

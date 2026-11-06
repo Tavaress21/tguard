@@ -8,11 +8,6 @@ using TGuard.Core.Engine;
 
 namespace TGuard.Service;
 
-/// <summary>
-/// On-execution protection. Every new process is checked as soon as Windows reports it:
-/// the executable itself, its command line (including Base64 PowerShell) and any script
-/// it was asked to run. Malicious processes are terminated and their files quarantined.
-/// </summary>
 public sealed class ProcessGuard : BackgroundService
 {
     private readonly ServiceState _state;
@@ -90,7 +85,6 @@ public sealed class ProcessGuard : BackgroundService
         }
     }
 
-    /// <summary>Inspects one process. Public so it can be exercised directly.</summary>
     public void Inspect(int pid)
     {
         if (pid == Environment.ProcessId) return;
@@ -99,7 +93,6 @@ public sealed class ProcessGuard : BackgroundService
         var name = Path.GetFileName(exe);
         var engine = _state.Engine;
 
-        // 1) the executable itself (cached, so this is cheap for programs we've already seen)
         if (!SystemDirs.Any(d => exe.StartsWith(d + "\\", StringComparison.OrdinalIgnoreCase)))
         {
             var r = engine.ScanFile(exe);
@@ -115,7 +108,6 @@ public sealed class ProcessGuard : BackgroundService
         var cmd = CommandLine(pid);
         if (string.IsNullOrWhiteSpace(cmd)) return;
 
-        // 2) scripts passed to wscript/powershell/mshta/...
         foreach (var file in CommandLineAnalyzer.ReferencedFiles(cmd).Where(File.Exists))
         {
             var r = engine.ScanFile(file);
@@ -127,7 +119,6 @@ public sealed class ProcessGuard : BackgroundService
             }
         }
 
-        // 3) the command line itself
         var c = CommandLineAnalyzer.Analyze(engine, name, cmd);
         if (c.Verdict == Verdict.Malicious)
         {
@@ -154,7 +145,7 @@ public sealed class ProcessGuard : BackgroundService
             p.WaitForExit(3000);
             return true;
         }
-        catch (ArgumentException) { return true; }   // already gone
+        catch (ArgumentException) { return true; }
         catch (Exception ex)
         {
             _log.LogWarning(ex, "Could not terminate pid {Pid}", pid);
@@ -187,7 +178,7 @@ public sealed class ProcessGuard : BackgroundService
 
     private static string? ImagePath(int pid)
     {
-        var h = OpenProcess(0x1000 /* PROCESS_QUERY_LIMITED_INFORMATION */, false, pid);
+        var h = OpenProcess(0x1000, false, pid);
         if (h == IntPtr.Zero) return null;
         try
         {

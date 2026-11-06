@@ -1,11 +1,3 @@
-<#
-  Manual install for testing (until there is a proper installer).
-
-  1. Download the "TGuard-win-x64" artifact from the Actions tab and extract it.
-  2. Open PowerShell as Administrator in that folder.
-  3. Run:  powershell -ExecutionPolicy Bypass -File .\Install-TGuard.ps1
-     To remove:  .\Install-TGuard.ps1 -Uninstall
-#>
 param(
     [string]$Source = $PSScriptRoot,
     [switch]$Uninstall
@@ -47,7 +39,6 @@ Copy-Item "$Source\service\*" "$target\service" -Recurse -Force
 Copy-Item "$Source\app\*" "$target\app" -Recurse -Force
 Copy-Item "$Source\cli\*" "$target\cli" -Recurse -Force
 
-# Shared data: SYSTEM and admins can write, users can read.
 $data = Join-Path $env:ProgramData 'TGuard'
 New-Item -ItemType Directory -Force -Path $data | Out-Null
 icacls $data /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-32-545:(OI)(CI)RX' | Out-Null

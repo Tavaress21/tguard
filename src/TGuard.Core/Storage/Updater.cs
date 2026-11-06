@@ -22,7 +22,6 @@ public sealed class UpdateReport
 
 public sealed class Updater
 {
-    // Since mid-2025 abuse.ch needs a free Auth-Key (https://auth.abuse.ch/).
     public const string MalwareBazaarRecent = "https://mb-api.abuse.ch/v2/files/exports/{0}/recent.csv";
     public const string UrlhausRecent = "https://urlhaus-api.abuse.ch/v1/urls/recent/limit/1000/";
 
@@ -40,7 +39,6 @@ public sealed class Updater
     {
         var report = new UpdateReport();
 
-        // 1) TGuard update server: feeds.json lists the files with their hashes and is signed
         if (!string.IsNullOrWhiteSpace(settings.UpdateUrl))
         {
             try
@@ -73,7 +71,6 @@ public sealed class Updater
             }
         }
 
-        // 2) abuse.ch feeds (MalwareBazaar, URLhaus), only with an Auth-Key
         var key = settings.AbuseChAuthKey?.Trim();
         if (string.IsNullOrEmpty(key))
         {
@@ -105,7 +102,6 @@ public sealed class Updater
 
     private static readonly JsonSerializerOptions Web = new(JsonSerializerDefaults.Web);
 
-    /// <summary>HTTPS only (plain HTTP is accepted for localhost, used by the tests).</summary>
     public static Uri UpdateBase(string url)
     {
         var u = new Uri(url.EndsWith('/') ? url : url + "/");
@@ -138,10 +134,6 @@ public sealed class Updater
 
     private static readonly System.Text.RegularExpressions.Regex Sha256Rx = new(@"\b[a-fA-F0-9]{64}\b");
 
-    /// <summary>
-    /// Accepts plain lists ("hash" or "hash;name") and the MalwareBazaar CSV export
-    /// (hash in column 2, malware family in column 9). Lines starting with # are skipped.
-    /// </summary>
     public static int AddHashes(ScanEngine engine, string text, string source)
     {
         var items = new List<(string, string)>();
@@ -193,7 +185,7 @@ public sealed class Updater
     public static int InstallRules(ScanEngine engine, string json)
     {
         var defs = JsonSerializer.Deserialize<List<RuleDefinition>>(json) ?? new();
-        var compiled = defs.Select(RuleEngine.Compile).ToList();   // throws if any rule is invalid
+        var compiled = defs.Select(RuleEngine.Compile).ToList();
         Directory.CreateDirectory(TGuardPaths.UserRules);
         File.WriteAllText(Path.Combine(TGuardPaths.UserRules, "tguard-update.json"), json);
         engine.ReloadRules();

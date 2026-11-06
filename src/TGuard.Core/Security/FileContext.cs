@@ -23,7 +23,6 @@ public static class FileContext
         if (!OperatingSystem.IsWindows()) return null;
         try
         {
-            // File.Exists() returns false for alternate data streams, so just try to read it
             return ParseZoneIdentifier(File.ReadAllText(path + ":Zone.Identifier"));
         }
         catch (Exception) { return null; }
@@ -63,8 +62,6 @@ public static class FileContext
                 }
                 catch (Exception) { }
             }
-            // most Windows system files carry no embedded signature: they are signed through
-            // a security catalog (C:\Windows\System32\CatRoot), so look there too
             if (result is WinTrust.TRUST_E_NOSIGNATURE or WinTrust.TRUST_E_SUBJECT_FORM_UNKNOWN)
             {
                 var cat = Catalog.Verify(path);
@@ -179,14 +176,14 @@ public static class FileContext
             public uint cbStruct;
             public IntPtr pPolicyCallbackData;
             public IntPtr pSIPClientData;
-            public uint dwUIChoice;          // 2 = no UI
-            public uint fdwRevocationChecks; // 0 = none, don't hit the network
-            public uint dwUnionChoice;       // 1 = file
+            public uint dwUIChoice;
+            public uint fdwRevocationChecks;
+            public uint dwUnionChoice;
             public IntPtr pFile;
-            public uint dwStateAction;       // 1 = verify, 2 = close
+            public uint dwStateAction;
             public IntPtr hWVTStateData;
             public IntPtr pwszURLReference;
-            public uint dwProvFlags;         // 0x1000 = cache-only revocation
+            public uint dwProvFlags;
             public uint dwUIContext;
             public IntPtr pSignatureSettings;
         }
@@ -229,7 +226,7 @@ public static class FileContext
                 cbStruct = (uint)Marshal.SizeOf<WINTRUST_DATA>(),
                 dwUIChoice = 2,
                 fdwRevocationChecks = 0,
-                dwUnionChoice = 2,   // catalog
+                dwUnionChoice = 2,
                 pFile = infoPtr,
                 dwStateAction = 1,
                 dwProvFlags = 0x00001000,

@@ -111,7 +111,6 @@ public sealed class UrlAnalyzer
         if (u.Scheme == "http" && Regex.IsMatch(url, "login|signin|verify|account|password|conta|senha|pagamento|entrar", RegexOptions.IgnoreCase))
             r.Add(new(15, Loc.T("url.http_login", shortUrl), "url"));
 
-        // brand impersonation
         var reg = RegisteredDomain(host);
         var regLabel = reg.Split('.')[0];
         var normalized = new string(host.Select(c => Homoglyphs.TryGetValue(c, out var n) ? n : c).Where(c => c != '-').ToArray());
@@ -125,7 +124,6 @@ public sealed class UrlAnalyzer
             { r.Add(new(45, Loc.T("url.typo", official, host), "url")); break; }
         }
 
-        // link text shows one domain but points to another
         if (!string.IsNullOrWhiteSpace(anchorText))
         {
             var m = Regex.Match(anchorText.ToLowerInvariant(), @"(?:https?://)?((?:[a-z0-9-]+\.)+[a-z]{2,})");

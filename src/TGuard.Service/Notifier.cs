@@ -44,7 +44,7 @@ public sealed class Notifier : BackgroundService
                         await foreach (var line in ch.Reader.ReadAllAsync(ct))
                             await writer.WriteLineAsync(line);
                     }
-                    catch (Exception) { /* app fechada */ }
+                    catch (Exception) { }
                     finally
                     {
                         _subscribers.TryRemove(id, out _);
@@ -74,7 +74,6 @@ internal static class PipeFactory
         sec.AddAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null), PipeAccessRights.FullControl, AccessControlType.Allow));
         sec.AddAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null), PipeAccessRights.FullControl, AccessControlType.Allow));
         sec.AddAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.AuthenticatedUserSid, null), PipeAccessRights.ReadWrite, AccessControlType.Allow));
-        // deny remote (network) access
         sec.AddAccessRule(new PipeAccessRule(new SecurityIdentifier(WellKnownSidType.NetworkSid, null), PipeAccessRights.FullControl, AccessControlType.Deny));
         return NamedPipeServerStreamAcl.Create(name, dir, NamedPipeServerStream.MaxAllowedServerInstances,
             PipeTransmissionMode.Byte, PipeOptions.Asynchronous, 0, 0, sec);

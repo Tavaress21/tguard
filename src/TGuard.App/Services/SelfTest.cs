@@ -46,7 +46,6 @@ public static class SelfTest
                 Save(win, Path.Combine(outDir, $"{key}.png"));
                 Console.WriteLine($"ok {key}");
             }
-            // confirmation dialog
             var dlg = Dialog.Preview(S.T("q.restore.title"), S.T("q.restore.confirm") + "\n\n" + S.T("q.restore.note"), S.T("q.restore"), DialogKind.Warning);
             dlg.Left = -20000; dlg.ShowActivated = false; dlg.WindowStartupLocation = WindowStartupLocation.Manual;
             dlg.Show();

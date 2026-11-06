@@ -4,10 +4,6 @@ using TGuard.Core.Ipc;
 
 namespace TGuard.Service;
 
-/// <summary>
-/// Scans USB and other removable drives as soon as they are plugged in and keeps them under
-/// real-time watch until they are removed.
-/// </summary>
 public sealed class UsbGuard : BackgroundService
 {
     private const int MaxFilesPerDrive = 50_000;
@@ -30,7 +26,6 @@ public sealed class UsbGuard : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
-        // drives already plugged in at boot are watched but not scanned again
         foreach (var d in RemovableDrives()) { _known.Add(d); _realtime.AddDrive(d); }
 
         while (!ct.IsCancellationRequested)

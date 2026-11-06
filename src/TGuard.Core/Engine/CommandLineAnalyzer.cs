@@ -24,7 +24,6 @@ public static class CommandLineAnalyzer
     {
         foreach (Match m in EncodedArg.Matches(commandLine))
         {
-            // PowerShell accepts any prefix of -EncodedCommand (-e, -enc, -ec...)
             var flag = m.Groups[1].Value.ToLowerInvariant();
             if (flag != "ec" && !"encodedcommand".StartsWith(flag, StringComparison.Ordinal)) continue;
             try { return Encoding.Unicode.GetString(Convert.FromBase64String(m.Groups[2].Value)); }
@@ -40,7 +39,7 @@ public static class CommandLineAnalyzer
         {
             var p = (m.Groups[1].Success ? m.Groups[1].Value : m.Groups[2].Value).Trim('"', '\'', ',');
             p = Environment.ExpandEnvironmentVariables(p);
-            var rooted = Regex.IsMatch(p, @"^([A-Za-z]:\\|\\\\)");   // C:\... or \\server\...
+            var rooted = Regex.IsMatch(p, @"^([A-Za-z]:\\|\\\\)");
             if (rooted && !list.Contains(p, StringComparer.OrdinalIgnoreCase)) list.Add(p);
         }
         return list;
@@ -59,7 +58,6 @@ public static class CommandLineAnalyzer
         if (decoded is not null)
             r.Findings.Add(new(0, Loc.Pick("Comando PowerShell escondido em Base64 (descodificado e analisado)",
                                             "PowerShell command hidden in Base64 (decoded and scanned)"), "cmdline"));
-        // URLs on the command line (mshta http://..., certutil -urlcache ...)
         foreach (Match m in Regex.Matches(text, @"https?://[^\s""'<>]+", RegexOptions.IgnoreCase))
             foreach (var f in engine.Urls.Analyze(m.Value))
                 if (!r.Findings.Any(x => x.Message == f.Message)) r.Findings.Add(f);

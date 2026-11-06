@@ -12,7 +12,6 @@ public sealed class AppRelease
     public string Notes { get; set; } = "";
 }
 
-/// <summary>Checks the update server for a newer TGuard and downloads its installer.</summary>
 public sealed class AppUpdater
 {
     private static readonly JsonSerializerOptions Web = new(JsonSerializerDefaults.Web);
@@ -23,7 +22,6 @@ public sealed class AppUpdater
     public static Version CurrentVersion =>
         typeof(AppUpdater).Assembly.GetName().Version is { } v ? new Version(v.Major, v.Minor, Math.Max(v.Build, 0)) : new Version(0, 0, 0);
 
-    /// <summary>Returns the newer release, or null when up to date. Throws if the manifest is not authentic.</summary>
     public async Task<AppRelease?> CheckAsync(TGuardSettings settings, CancellationToken ct = default)
     {
         var baseUri = Updater.UpdateBase(settings.UpdateUrl);
@@ -38,7 +36,6 @@ public sealed class AppUpdater
         return v > CurrentVersion ? release : null;
     }
 
-    /// <summary>Downloads the installer and checks its hash against the signed manifest.</summary>
     public async Task<string> DownloadAsync(TGuardSettings settings, AppRelease release, string folder, CancellationToken ct = default)
     {
         var bytes = await _http.GetBytesAsync(new Uri(Updater.UpdateBase(settings.UpdateUrl), release.File), ct);

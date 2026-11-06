@@ -35,7 +35,7 @@ public sealed class Response
 
 public sealed class Notification
 {
-    public string Kind { get; set; } = "";     // threat | scan-progress | scan-done | status
+    public string Kind { get; set; } = "";
     public string Title { get; set; } = "";
     public string Message { get; set; } = "";
     public JsonNode? Data { get; set; }
@@ -62,7 +62,7 @@ public sealed class ServiceStatus
 public sealed class ScanProgress
 {
     public string Id { get; set; } = "";
-    public string Type { get; set; } = "";     // quick | full | custom
+    public string Type { get; set; } = "";
     public bool Running { get; set; }
     public int FilesScanned { get; set; }
     public int Threats { get; set; }

@@ -37,10 +37,6 @@ public sealed class ServiceState
         SettingsChanged?.Invoke();
     }
 
-    /// <summary>
-    /// Records a detection: optional auto-quarantine, history entry and a notification
-    /// for any open TGuard window. <paramref name="extraAction"/> is e.g. "process terminated".
-    /// </summary>
     public ThreatInfo? Handle(ScanResult r, string source, bool allowQuarantine = true, string? extraAction = null)
     {
         if (r.Error is not null || r.Verdict == Verdict.Clean) return null;

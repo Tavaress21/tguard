@@ -48,7 +48,6 @@
                 </StackPanel>
             </Border>
 
-            <!-- Trusted files -->
             <StackPanel x:Name="TrustedSection" Margin="0,26,0,0">
                 <TextBlock Text="{s:Tr q.trusted}" Style="{StaticResource H2}" />
                 <TextBlock Text="{s:Tr q.trusted.sub}" Style="{StaticResource Small}" FontSize="13" Margin="0,3,0,12" />

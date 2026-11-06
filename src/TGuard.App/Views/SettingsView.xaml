@@ -12,7 +12,6 @@
                 <TextBlock Text="{s:Tr set.title}" Style="{StaticResource PageTitle}" VerticalAlignment="Center" />
             </DockPanel>
 
-            <!-- Protection -->
             <TextBlock Text="{s:Tr set.section.protection}" Style="{StaticResource Caption}" Margin="4,0,0,8" />
             <Border Style="{StaticResource CardBorder}" Padding="22,6">
                 <StackPanel>
@@ -43,7 +42,6 @@
                 </StackPanel>
             </Border>
 
-            <!-- General -->
             <TextBlock Text="{s:Tr set.section.general}" Style="{StaticResource Caption}" Margin="4,22,0,8" />
             <Border Style="{StaticResource CardBorder}" Padding="22,6">
                 <StackPanel>
@@ -85,7 +83,6 @@
                 </StackPanel>
             </Border>
 
-            <!-- Folders -->
             <TextBlock Text="{s:Tr set.section.folders}" Style="{StaticResource Caption}" Margin="4,22,0,8" />
             <Border Style="{StaticResource CardBorder}">
                 <StackPanel>

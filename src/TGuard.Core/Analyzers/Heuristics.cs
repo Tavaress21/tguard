@@ -75,7 +75,6 @@ public static class Heuristics
         if (pe.Sections.Any(s => s.RawSize == 0 && s.VirtualSize > 0x100000 && s.Executable))
             yield return new(15, Loc.T("pe.unpack"));
         if (pe.SecurityDirectory.Rva == 0) yield return new(10, Loc.T("pe.unsigned"));
-        // deterministic .NET builds put a hash in the timestamp, so skip them
         if (!pe.IsDotNet && pe.TimeDateStamp > DateTimeOffset.UtcNow.AddDays(2).ToUnixTimeSeconds() && pe.TimeDateStamp < 0xF0000000)
             yield return new(10, Loc.T("pe.future"));
         if (pe.OverlaySize > 2_000_000 && pe.SecurityDirectory.Rva == 0)
@@ -185,7 +184,7 @@ public static class Heuristics
             if (hi == 0 && lo >= 0x20 && lo < 0x7F) { cur.Append((char)lo); continue; }
             if (cur.Length >= minLen) sb.Append(cur).Append('\n');
             cur.Clear();
-            if (hi != 0 && i + 2 < d.Length && d[i + 2] == 0) i--; // realign on odd offsets
+            if (hi != 0 && i + 2 < d.Length && d[i + 2] == 0) i--;
         }
         if (cur.Length >= minLen) sb.Append(cur);
         return sb.ToString();

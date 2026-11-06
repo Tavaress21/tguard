@@ -6,22 +6,6 @@ using TGuard.Core.Engine;
 
 namespace TGuard.Core.Rules;
 
-/*
- YARA-inspired rule format (the matcher itself is our own):
- {
-   "name": "Ransomware_Shadow_Copy_Deletion",
-   "description_en": "...", "description_pt": "...",
-   "score": 90,
-   "strings": {
-     "a": { "text": "abc", "nocase": true },     // text (also matched as UTF-16LE)
-     "b": { "hex": "4D 5A ?? 00" },             // bytes (?? = wildcard)
-     "c": { "regex": "foo\\s+bar", "nocase": true }
-   },
-   "condition": "any" | "all" | "2" | "a and (b or not c)",
-   "filetypes": ["pe","script","office","pdf","html","lnk","any"]
- }
-*/
-
 public sealed class RuleDefinition
 {
     [JsonPropertyName("name")] public string Name { get; set; } = "";
@@ -49,9 +33,6 @@ public sealed class CompiledRule
 
     public string Description => Loc.Pick(Def.DescriptionPt, Def.DescriptionEn);
 
-    // Executables are full of legitimate strings (help text, export tables, error messages), so
-    // text rules only run on them when they opt in with "pe". PE files are judged by their
-    // structure, imports and signature instead.
     public bool AppliesTo(string category) =>
         Def.FileTypes.Contains(category) || (Def.FileTypes.Contains("any") && category != "pe");
 

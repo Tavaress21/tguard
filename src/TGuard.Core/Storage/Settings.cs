@@ -30,12 +30,10 @@ public static class TGuardPaths
 
 public sealed class TGuardSettings
 {
-    // general
     public string Language { get; set; } = "pt";
     public bool StartWithWindows { get; set; } = true;
     public bool Notifications { get; set; } = true;
 
-    // engine
     public int MaxFileSizeMb { get; set; } = 100;
     public int ArchiveMaxDepth { get; set; } = 3;
     public int ArchiveMaxEntries { get; set; } = 500;
@@ -43,31 +41,24 @@ public sealed class TGuardSettings
     public int ThresholdMalicious { get; set; } = 80;
     public bool AutoQuarantine { get; set; } = true;
 
-    // real-time
     public bool RealtimeEnabled { get; set; } = true;
     public List<string> WatchFolders { get; set; } = new() { "%USERPROFILE%\\Downloads", "%USERPROFILE%\\Desktop", "%USERPROFILE%\\Documents", "%TEMP%" };
     public List<string> Exclusions { get; set; } = new();
 
-    // scheduled scans
     public bool ScheduledQuickScan { get; set; } = true;
     public int ScheduledQuickScanHour { get; set; } = 13;
 
-    // updates
     public string UpdateUrl { get; set; } = "https://tguard.luis-tavares.pt/updates/";
     public bool AutoUpdate { get; set; } = true;
     public string AbuseChAuthKey { get; set; } = "";
     public bool AutoInstallUpdates { get; set; } = true;
-    /// <summary>Extra public keys accepted for updates (admin-only, used by the CI tests).</summary>
     public List<string> ExtraUpdateKeys { get; set; } = new();
 
-    // process guard and USB drives
     public bool ProcessGuardEnabled { get; set; } = true;
     public bool UsbScanEnabled { get; set; } = true;
 
-    // community sharing (anonymous, off by default)
     public bool CommunitySharing { get; set; } = false;
 
-    // luis-tavares.pt: anonymous daily statistics, account link, reports and help
     public string SiteUrl { get; set; } = "https://luis-tavares.pt/";
     public bool UsageStats { get; set; } = true;
 

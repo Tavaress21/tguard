@@ -4,20 +4,12 @@ using TGuard.Core.Security;
 
 namespace TGuard.Core.Storage;
 
-/// <summary>
-/// Builds the signed files served by the update server. Runs in GitHub Actions
-/// (the private keys only exist there as secrets), never on users' PCs.
-/// </summary>
 public static class Publisher
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     private const int MaxSignatures = 400_000;
     private const int MaxUrls = 150_000;
 
-    /// <summary>
-    /// Refreshes signatures.txt / urls.txt from abuse.ch plus our own lists, keeping what was
-    /// already published (lists only grow until they hit the cap), then signs feeds.json.
-    /// </summary>
     public static async Task<Updater.FeedsManifest> BuildFeedsAsync(
         string outDir, string feedsKeyPem, string? abuseChKey,
         IEnumerable<string> ownHashLists, IEnumerable<string> ownUrlLists, string? rulesJson,
@@ -28,7 +20,6 @@ public static class Publisher
         var sigPath = Path.Combine(outDir, "signatures.txt");
         var urlPath = Path.Combine(outDir, "urls.txt");
 
-        // hash -> name, newest last
         var hashes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var line in ReadLines(sigPath))
         {
@@ -116,7 +107,6 @@ public static class Publisher
         else if (File.Exists(allowPath)) File.Delete(allowPath);
         if (!string.IsNullOrWhiteSpace(rulesJson))
         {
-            // refuse to publish rules that don't compile
             foreach (var d in JsonSerializer.Deserialize<List<Rules.RuleDefinition>>(rulesJson) ?? new()) Rules.RuleEngine.Compile(d);
             var rulesPath = Path.Combine(outDir, "rules.json");
             await File.WriteAllTextAsync(rulesPath, rulesJson, ct);
@@ -127,7 +117,6 @@ public static class Publisher
         return manifest;
     }
 
-    /// <summary>Copies the installer next to a signed app.json describing it.</summary>
     public static AppRelease PublishApp(string installerPath, string version, string notes, string outDir, string releaseKeyPem)
     {
         Directory.CreateDirectory(outDir);

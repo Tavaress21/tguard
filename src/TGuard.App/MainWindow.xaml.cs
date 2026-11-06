@@ -27,7 +27,6 @@ public partial class MainWindow : Window
 
     private void Window_StateChanged(object? sender, System.EventArgs e)
     {
-        // with a custom chrome Windows pushes ~7px off-screen when maximized
         RootGrid.Margin = WindowState == WindowState.Maximized ? new Thickness(7) : new Thickness(0);
         MaxButton.Content = WindowState == WindowState.Maximized ? "\uE923" : "\uE922";
     }
@@ -73,7 +72,6 @@ public partial class MainWindow : Window
         }
     }
 
-    // Closing the window keeps TGuard running in the tray.
     protected override void OnClosing(CancelEventArgs e)
     {
         if (!ReallyClose)

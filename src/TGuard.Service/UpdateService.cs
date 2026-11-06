@@ -7,10 +7,6 @@ using TGuard.Core.Storage;
 
 namespace TGuard.Service;
 
-/// <summary>
-/// Every 6 hours: refresh signatures and malicious URL lists, then check for a newer TGuard
-/// and install it silently. Everything downloaded is signature-checked first.
-/// </summary>
 public sealed class UpdateService : BackgroundService
 {
     private static readonly TimeSpan Interval = TimeSpan.FromHours(6);
@@ -36,7 +32,6 @@ public sealed class UpdateService : BackgroundService
         {
             var st = _state.State;
             var due = st.LastUpdate is null || DateTimeOffset.Now - st.LastUpdate > Interval;
-            // after a failed attempt (offline, server down) wait an hour before trying again
             var backoff = st.LastUpdateAttempt is not null && DateTimeOffset.Now - st.LastUpdateAttempt < TimeSpan.FromHours(1);
             if (_state.Settings.AutoUpdate && due && !backoff)
                 await RunAsync(installAppUpdate: _state.Settings.AutoInstallUpdates, ct);
@@ -99,7 +94,6 @@ public sealed class UpdateService : BackgroundService
             var installer = await _appUpdater.DownloadAsync(_state.Settings, release, folder, ct);
             report.Notes.Add($"app: installing {release.Version}");
 
-            // tell open windows so they can come back after the update
             _notifier.Publish(new Notification
             {
                 Kind = "app-update",
@@ -108,7 +102,6 @@ public sealed class UpdateService : BackgroundService
             });
             await Task.Delay(TimeSpan.FromSeconds(3), ct);
 
-            // the installer stops this service, replaces the files and starts it again
             Process.Start(new ProcessStartInfo(installer,
                 $"/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /LOG=\"{Path.Combine(TGuardPaths.Logs, "update.log")}\"")
             {

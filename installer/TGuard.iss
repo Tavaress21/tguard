@@ -1,7 +1,4 @@
-﻿; Inno Setup script for TGuard.
-; Built by CI:  ISCC.exe /DAppVersion=0.1.0 installer\TGuard.iss
-
-#ifndef AppVersion
+﻿#ifndef AppVersion
   #define AppVersion "0.1.0"
 #endif
 
@@ -68,7 +65,6 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
   ValueData: """{app}\app\TGuard.exe"" --tray"; Flags: uninsdeletevalue
 
 [Run]
-; shared data: SYSTEM and admins can write, users can only read
 Filename: "{sys}\icacls.exe"; Parameters: """{commonappdata}\TGuard"" /inheritance:r /grant:r *S-1-5-18:(OI)(CI)F *S-1-5-32-544:(OI)(CI)F *S-1-5-32-545:(OI)(CI)RX"; Flags: runhidden waituntilterminated; StatusMsg: "{cm:InstallingService}"
 Filename: "{sys}\sc.exe"; Parameters: "create TGuard binPath= ""{app}\service\TGuard.Service.exe"" start= auto DisplayName= ""TGuard Protection"""; Flags: runhidden waituntilterminated; StatusMsg: "{cm:InstallingService}"
 Filename: "{sys}\sc.exe"; Parameters: "config TGuard binPath= ""{app}\service\TGuard.Service.exe"" start= auto"; Flags: runhidden waituntilterminated

@@ -26,7 +26,6 @@ public sealed class ScanEngine
 
     public bool UseWindowsContext { get; set; } = true;
 
-    // Results cache keyed by path + size + mtime.
     private readonly ConcurrentDictionary<string, (long Size, DateTime Modified, ScanResult Result)> _cache = new(StringComparer.OrdinalIgnoreCase);
     private const int CacheLimit = 50_000;
 
@@ -108,10 +107,6 @@ public sealed class ScanEngine
         }
     }
 
-    /// <summary>
-    /// Weighs where a file came from. Scripts, shortcuts and disk images straight from the
-    /// Internet are rarely legitimate, so they count more than a downloaded installer.
-    /// </summary>
     public void ApplyOrigin(ScanResult r, WebOrigin origin)
     {
         if (!origin.FromInternet) return;
@@ -137,7 +132,6 @@ public sealed class ScanEngine
 
         var trustedSigner = false;
         var microsoft = false;
-        // signature checks are slow-ish, only do them when they can change the verdict
         if (r.Kind == FileKind.Pe && r.Findings.Any(f => f.Score > 0 && f.Source != "signature"))
         {
             var sig = FileContext.VerifySignature(path);
@@ -178,7 +172,6 @@ public sealed class ScanEngine
         ct.ThrowIfCancellationRequested();
         var r = new ScanResult { Name = name, Size = data.Length, Sha256 = SignatureDatabase.Sha256Hex(data) };
 
-        // 0) user-trusted file
         if (Trust.IsTrusted(r.Sha256))
         {
             r.Kind = FileTypeDetector.Detect(data, name);
@@ -193,7 +186,6 @@ public sealed class ScanEngine
             return r;
         }
 
-        // 1) known signature
         var sig = Signatures.Lookup(r.Sha256);
         if (sig is not null)
         {
@@ -201,7 +193,6 @@ public sealed class ScanEngine
             r.Findings.Add(new(100, Loc.T("sig.known", sig), "signature"));
         }
 
-        // 2) real file type + heuristics
         r.Kind = FileTypeDetector.Detect(data, name);
         r.Findings.AddRange(Heuristics.Name(name, r.Kind, fromEmail));
         switch (r.Kind)
@@ -212,12 +203,9 @@ public sealed class ScanEngine
             case FileKind.Script or FileKind.Html: r.Findings.AddRange(Heuristics.Script(data)); break;
         }
 
-        // 3) rules (for OLE documents, also run on the decompressed VBA source)
         var category = RuleEngine.CategoryOf(r.Kind);
         if (category != "archive")
         {
-            // rules look at the first and last 8 MB: enough for scripts and droppers, and keeps
-            // big installers from taking seconds per file
             const int Window = 8 * 1024 * 1024;
             var text = data.Length <= 2 * Window
                 ? RuleEngine.ToLatin1(data)
@@ -236,7 +224,6 @@ public sealed class ScanEngine
             }
         }
 
-        // 4) archives: scan the contents
         if (data.Length >= 4 && data[0] == 'P' && data[1] == 'K' && data[2] == 3 && data[3] == 4
             && r.Kind is FileKind.Zip or FileKind.Jar or FileKind.OfficeOpenXml)
             ScanZip(data, r, depth, fromEmail, ct);
@@ -273,7 +260,6 @@ public sealed class ScanEngine
                 { r.Findings.Add(new(40, Loc.T("zip.bomb"))); return; }
                 total += e.Length;
                 if (total > MaxBytes * 4) break;
-                // inside Office docs only code parts and relationships matter
                 if (r.Kind == FileKind.OfficeOpenXml &&
                     !e.FullName.EndsWith(".bin", StringComparison.OrdinalIgnoreCase) &&
                     !e.FullName.EndsWith(".rels", StringComparison.OrdinalIgnoreCase) &&

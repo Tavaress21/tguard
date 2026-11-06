@@ -1,7 +1,11 @@
-First public test release.
+What's new in 0.2.0
 
-Download `TGuard-Setup-*.exe` below and run it. Setup installs the .NET 8 Desktop Runtime
-from Microsoft if it's missing, sets up the TGuard service and adds TGuard to the Start menu.
+- Link the PC to your luis-tavares.pt account (optional) from Settings > Account and help.
+- "False positive" button in Quarantine: sends the file's SHA-256 for review. Files confirmed
+  as safe stop being detected on every PC with the next update.
+- "Get help" opens a support ticket with the TGuard and Windows versions already filled in.
+- Scam links and malicious files reported on luis-tavares.pt go into the hourly signed updates.
+- Anonymous daily statistics (TGuard and Windows version only), can be turned off in Settings.
 
 Windows SmartScreen may warn that the publisher is unknown because the installer isn't
 code-signed yet. Click "More info" and then "Run anyway".

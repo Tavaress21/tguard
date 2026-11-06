@@ -17,7 +17,6 @@ public sealed class Scheduler : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
-        // stay out of the way during boot
         try { await Task.Delay(TimeSpan.FromMinutes(10), ct); } catch (OperationCanceledException) { return; }
         while (!ct.IsCancellationRequested)
         {

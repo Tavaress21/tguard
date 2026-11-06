@@ -40,7 +40,6 @@
         <FontFamily x:Key="Body">pack://application:,,,/Assets/Fonts/#Outfit</FontFamily>
         <FontFamily x:Key="BodySemi">pack://application:,,,/Assets/Fonts/#Outfit SemiBold</FontFamily>
         <FontFamily x:Key="BodyBold">pack://application:,,,/Assets/Fonts/#Outfit ExtraBold</FontFamily>
-        <!-- Windows 11 icon font with Windows 10 fallback -->
         <FontFamily x:Key="Icons">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
 
         <DropShadowEffect x:Key="SoftShadow" BlurRadius="24" ShadowDepth="3" Direction="270" Opacity="0.07" Color="#0F172A" />

@@ -11,7 +11,6 @@ public sealed class SignatureDatabase
     private readonly string? _path;
     private readonly string? _allowPath;
 
-    // EICAR test file (harmless industry-standard AV test)
     public const string EicarSha256 = "275a021bbfb6489e54d471899f7db9d1663fc695ec2fe2a2c4538aabf651fd0f";
 
     public SignatureDatabase(string? path = null, string? allowPath = null)

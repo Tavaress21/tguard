@@ -127,8 +127,6 @@ public sealed class PipeServer : BackgroundService
                 return Response.Success(_state.Quarantine.List());
             case "quarantine.restore":
             {
-                // the user says the file is safe, so trust it -
-                // otherwise real-time protection would grab it again right away
                 var item = _state.Quarantine.List().FirstOrDefault(i => i.Id == Arg("id"))
                            ?? throw new KeyNotFoundException("Quarantine item not found");
                 _state.Engine.Trust.Add(item.Sha256, item.OriginalPath);
@@ -158,8 +156,6 @@ public sealed class PipeServer : BackgroundService
             case "settings.set":
                 var s = req.Args?.Deserialize<TGuardSettings>(Protocol.Json);
                 if (s is null) return Response.Fail("invalid settings");
-                // where updates come from and which keys they're checked with can only be
-                // changed by editing settings.json as an administrator
                 s.UpdateUrl = _state.Settings.UpdateUrl;
                 s.ExtraUpdateKeys = _state.Settings.ExtraUpdateKeys;
                 s.SiteUrl = _state.Settings.SiteUrl;

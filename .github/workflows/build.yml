@@ -48,13 +48,11 @@ jobs:
         run: |
           ./publish/cli/tguard.exe info
           ./publish/cli/tguard.exe scan "$env:windir\System32\drivers\etc"
-          # Authenticode: Microsoft's dotnet.exe is signed, a freshly built test file is not
           $sig = ./publish/cli/tguard.exe signature "$env:ProgramFiles\dotnet\dotnet.exe" | Out-String
           Write-Host $sig
           if ($sig -notmatch '^Valid') { throw 'Authenticode check did not work.' }
           $unsigned = ./publish/cli/tguard.exe signature ./publish/cli/tguard.dll | Out-String
           if ($unsigned -notmatch '^Unsigned') { throw "Unsigned file reported as: $unsigned" }
-          # system files are signed either inside the file or through a catalog, both must verify
           $catalogSigned = 0
           foreach ($f in Get-ChildItem "$env:windir\System32\*.dll" | Select-Object -First 300) {
             $sig = ./publish/cli/tguard.exe signature $f.FullName | Out-String
@@ -65,18 +63,15 @@ jobs:
           if ($catalogSigned -eq 0) { throw 'No catalog signatures were recognised.' }
           $out = ./publish/cli/tguard.exe scan "$env:ProgramFiles\dotnet\dotnet.exe" --all | Out-String
           if ($out -notmatch "CLEAN") { throw 'Signed Microsoft binary was not considered clean.' }
-          # false positives: scan a big folder of legit Windows/.NET binaries
           $runtime = Get-ChildItem "$env:ProgramFiles\dotnet\shared\Microsoft.NETCore.App" | Sort-Object Name | Select-Object -Last 1
           $sw = [Diagnostics.Stopwatch]::StartNew()
           ./publish/cli/tguard.exe scan "$env:windir\System32\WindowsPowerShell" $runtime.FullName "$env:ProgramFiles\dotnet\dotnet.exe"
           $code = $LASTEXITCODE
-          # every DLL/EXE directly in System32 and SysWOW64 must come out clean
           ./publish/cli/tguard.exe scan "$env:windir\System32" "$env:windir\SysWOW64" --depth 0
           if ($LASTEXITCODE -ne 0) { $code = $LASTEXITCODE }
           Write-Host "False-positive scan took $([int]$sw.Elapsed.TotalSeconds)s"
           $global:LASTEXITCODE = $code
           if ($LASTEXITCODE -ne 0) { throw 'False positives on legit Windows/.NET files.' }
-          # signature update from the public feeds (may fail if a feed needs an API key, but must not crash)
           ./publish/cli/tguard.exe update
           if ($LASTEXITCODE -gt 1) { throw 'Update crashed.' }
           $global:LASTEXITCODE = 0

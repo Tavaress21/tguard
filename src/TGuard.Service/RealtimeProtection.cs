@@ -33,7 +33,6 @@ public sealed class RealtimeProtection : BackgroundService
         {
             await Task.Delay(750, ct).ContinueWith(_ => { });
             ProcessPending(ct);
-            // pick up new user profiles / folders
             if (DateTime.UtcNow > nextRefresh) { Rebuild(); nextRefresh = DateTime.UtcNow.AddMinutes(10); }
         }
         foreach (var w in _watchers) w.Dispose();
@@ -79,7 +78,6 @@ public sealed class RealtimeProtection : BackgroundService
         }
     }
 
-    /// <summary>Watches a USB/external drive while it is plugged in.</summary>
     public void AddDrive(string root)
     {
         if (!_state.Settings.RealtimeEnabled || _drives.ContainsKey(root)) return;
@@ -116,11 +114,9 @@ public sealed class RealtimeProtection : BackgroundService
             }
             catch (Exception) { _pending.TryRemove(path, out _); continue; }
 
-            // wait until the size is stable (download/copy finished)
             if (size != lastSize) { _pending[path] = (now, size); continue; }
             _pending.TryRemove(path, out _);
 
-            // don't rescan the same file over and over
             if (_recent.TryGetValue(path, out var t) && (now - t).TotalSeconds < 10) continue;
             _recent[path] = now;
             if (_recent.Count > 5000) foreach (var k in _recent.Where(kv => (now - kv.Value).TotalMinutes > 5).Select(kv => kv.Key).ToList()) _recent.TryRemove(k, out _);

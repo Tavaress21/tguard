@@ -50,7 +50,6 @@ public sealed class Quarantine
     public QuarantineItem Isolate(string path, string threat, IEnumerable<string> reasons)
     {
         byte[] data;
-        // full sharing: another process may still have the file open
         using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
         {
             data = new byte[fs.Length];
@@ -60,7 +59,6 @@ public sealed class Quarantine
         try { File.Delete(path); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // file in use: rename it so it can't be launched
             File.Move(path, path + ".tguard-bloqueado", true);
         }
         return item;
@@ -120,7 +118,6 @@ public sealed class Quarantine
         var dest = destination ?? item.OriginalPath;
         if (dest.StartsWith("email:", StringComparison.Ordinal) || !Path.IsPathRooted(dest))
         {
-            // email attachment: restore to Public\Downloads so every user can reach it
             var pub = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonDocuments), "..", "Downloads");
             dest = Path.Combine(Path.GetFullPath(pub), string.Concat(Path.GetFileName(item.OriginalPath).Split(Path.GetInvalidFileNameChars())));
         }

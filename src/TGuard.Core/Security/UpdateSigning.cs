@@ -2,12 +2,6 @@ using System.Security.Cryptography;
 
 namespace TGuard.Core.Security;
 
-/// <summary>
-/// Everything downloaded from the update server is signed (ECDSA P-256, SHA-256).
-/// Two separate keys: the release key signs new versions of TGuard and never leaves the
-/// GitHub release workflow; the feeds key signs signature/URL lists and lives on the server.
-/// A compromised web server can therefore publish bad lists at worst, never a fake TGuard.
-/// </summary>
 public static class UpdateSigning
 {
     public const string ReleaseKey = "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEUlzrpT4EdnEduKocSoRoRn17Y3QrnxrxMhsCZUyQAdFtEJXdSskcBenKyS1Kkw7rsC/aQkUnyWch3l4sWstPiQ==";

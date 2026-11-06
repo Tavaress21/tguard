@@ -11,7 +11,6 @@ public sealed record CheckItem(string Id, string Title, CheckStatus Status, stri
 
 public static class SecurityCheck
 {
-    // One PowerShell call that collects everything as JSON (much faster than several processes).
     private const string Script = @"
 $ErrorActionPreference='SilentlyContinue'
 $r=@{}
@@ -48,7 +47,6 @@ $r | ConvertTo-Json -Depth 4 -Compress";
         string? S(string n) => hasJson && j.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
         int? I(string n) => hasJson && j.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt32() : null;
 
-        // Microsoft Defender
         var rt = B("defRt");
         items.Add(rt switch
         {
@@ -65,7 +63,6 @@ $r | ConvertTo-Json -Depth 4 -Compress";
                 T("Desligada: malware pode desativar o Defender.", "Off: malware can disable Defender."),
                 T("Segurança do Windows → Definições de proteção → Proteção contra adulteração.", "Windows Security → Manage settings → Tamper Protection.")));
 
-        // Firewall
         if (hasJson && j.TryGetProperty("fw", out var fw) && fw.ValueKind == JsonValueKind.Array)
         {
             var off = fw.EnumerateArray().Where(p => p.TryGetProperty("e", out var e) && !e.GetBoolean())
@@ -76,7 +73,6 @@ $r | ConvertTo-Json -Depth 4 -Compress";
                     T("Segurança do Windows → Firewall e proteção de rede → ligar.", "Windows Security → Firewall & network protection → turn on.")));
         }
 
-        // Windows Update
         if (S("lastUpdate") is string lu && DateTimeOffset.TryParse(lu, out var last))
         {
             var days = (int)(DateTimeOffset.Now - last).TotalDays;
@@ -86,39 +82,33 @@ $r | ConvertTo-Json -Depth 4 -Compress";
                     T("Definições → Windows Update → Procurar atualizações.", "Settings → Windows Update → Check for updates.")));
         }
 
-        // UAC
         var lua = ReadDword(Registry.LocalMachine, @"SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System", "EnableLUA");
         items.Add(lua == 0
             ? new("uac", T("Controlo de Conta de Utilizador (UAC)", "User Account Control (UAC)"), CheckStatus.Critical, T("Desativado: qualquer programa corre com poderes de administrador.", "Disabled: any program runs with administrator rights."),
                 T("Painel de Controlo → Contas de Utilizador → Alterar definições do Controlo de Conta de Utilizador.", "Control Panel → User Accounts → Change User Account Control settings."))
             : new("uac", T("Controlo de Conta de Utilizador (UAC)", "User Account Control (UAC)"), CheckStatus.Ok, T("Ativo.", "Enabled.")));
 
-        // Remote Desktop
         var denyRdp = ReadDword(Registry.LocalMachine, @"SYSTEM\CurrentControlSet\Control\Terminal Server", "fDenyTSConnections");
         if (denyRdp == 0)
             items.Add(new("rdp", T("Ambiente de Trabalho Remoto", "Remote Desktop"), CheckStatus.Warning,
                 T("Ligado: se a porta 3389 estiver exposta à Internet é um alvo frequente de ataques.", "On: if port 3389 is exposed to the Internet it is a frequent attack target."),
                 T("Desliga-o em Definições → Sistema → Ambiente de Trabalho Remoto se não o usares.", "Turn it off in Settings → System → Remote Desktop if you don't use it.")));
 
-        // SMBv1
         if (B("smb1") == true)
             items.Add(new("smb1", "SMBv1", CheckStatus.Critical, T("Protocolo antigo ativo (usado pelo WannaCry).", "Legacy protocol enabled (used by WannaCry)."),
                 T("PowerShell (admin): Set-SmbServerConfiguration -EnableSMB1Protocol $false", "PowerShell (admin): Set-SmbServerConfiguration -EnableSMB1Protocol $false")));
 
-        // AutoRun
         var autorun = ReadDword(Registry.LocalMachine, @"SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer", "NoDriveTypeAutoRun");
         items.Add(autorun is >= 0xFF
             ? new("autorun", T("Execução automática de pens/CDs", "AutoRun for USB/CD"), CheckStatus.Ok, T("Bloqueada.", "Blocked."))
             : new("autorun", T("Execução automática de pens/CDs", "AutoRun for USB/CD"), CheckStatus.Warning, T("Não está totalmente bloqueada.", "Not fully blocked."),
                 T("O TGuard pode bloquear isto no separador Pens USB.", "TGuard can block this in the USB tab.")));
 
-        // BitLocker
         if (S("bitlocker") is string bl)
             items.Add(bl == "On"
                 ? new("bitlocker", "BitLocker", CheckStatus.Ok, T("Disco do sistema cifrado.", "System drive encrypted."))
                 : new("bitlocker", "BitLocker", CheckStatus.Info, T("Disco do sistema não cifrado: se o PC for roubado, os dados ficam acessíveis.", "System drive not encrypted: if stolen, data is readable.")));
 
-        // Wi-Fi
         if (S("wifi") is string ssid)
         {
             var auth = S("wifiAuth") ?? "";
@@ -131,7 +121,6 @@ $r | ConvertTo-Json -Depth 4 -Compress";
                 items.Add(new("wifi", $"Wi-Fi ({ssid})", CheckStatus.Ok, T($"Protegida ({auth}).", $"Protected ({auth}).")));
         }
 
-        // Startup entries from suspicious locations
         foreach (var (name, cmd) in StartupEntries())
         {
             var c = cmd.ToLowerInvariant();

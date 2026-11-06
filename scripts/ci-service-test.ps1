@@ -1,6 +1,3 @@
-# Service integration test (run by GitHub Actions):
-# starts the service in console mode, talks to it over the named pipe and checks
-# that real-time protection catches and quarantines a test file.
 param([string]$ServiceExe = "publish/service/TGuard.Service.exe")
 
 $ErrorActionPreference = 'Stop'
@@ -29,7 +26,6 @@ try {
     Write-Host "Status: $($s.data | ConvertTo-Json -Compress)"
     if (-not $s.data.realtimeEnabled -or $s.data.watchedFolders -lt 1) { throw 'Real-time protection is not active.' }
 
-    # Test file: ransomware-like script (harmless text, never executed)
     $downloads = Join-Path $env:USERPROFILE 'Downloads'
     New-Item -ItemType Directory -Force -Path $downloads | Out-Null
     $file = Join-Path $downloads 'tguard_test_cleanup.cmd'
@@ -48,7 +44,6 @@ try {
     $ev = Send-TGuard 'events'
     Write-Host "Events: $(@($ev.data).Count)"
 
-    # Security: an arbitrary process (this PowerShell) must not be able to turn protection off
     $deny = Send-TGuard 'settings.set' @{ realtimeEnabled = $false }
     if ($deny.ok) { throw 'SECURITY FAILURE: settings change accepted from an untrusted client.' }
     Write-Host "Untrusted request rejected: $($deny.error)"
@@ -57,7 +52,6 @@ try {
     $deny2 = Send-TGuard 'quarantine.delete' @{ id = 'x' }
     if ($deny2.ok) { throw 'SECURITY FAILURE: quarantine.delete accepted from an untrusted client.' }
 
-    # Mark-of-the-Web: file "downloaded" from a suspicious IP address
     $js = Join-Path $downloads 'tguard_test_invoice.js'
     Set-Content -Path $js -Value 'var x = 1;' -Encoding ascii
     Set-Content -Path "$($js):Zone.Identifier" -Value "[ZoneTransfer]`r`nZoneId=3`r`nHostUrl=http://185.22.1.9/cgd/fatura.js" -Encoding ascii
@@ -71,7 +65,6 @@ try {
     $e = @($ev.data) | Where-Object { $_.target -like '*tguard_test_invoice.js' } | Select-Object -First 1
     Write-Host "MOTW: $($e.verdict) $($e.score) - $($e.reasons -join ' | ')"
 
-    # Custom scan through the service
     $scanDir = Join-Path $env:TEMP 'tguard-scan-test'
     New-Item -ItemType Directory -Force -Path $scanDir | Out-Null
     Set-Content -Path (Join-Path $scanDir 'ok.txt') -Value 'nothing to see here' -Encoding ascii
@@ -90,8 +83,6 @@ try {
     $st3 = Send-TGuard 'status'
     if (-not $st3.data.lastScan) { throw 'Last scan date was not saved.' }
 
-    # Process guard: a hidden PowerShell with a Base64 download cradle must be killed.
-    # It sleeps first and the URL points to a closed local port, so nothing is ever downloaded.
     if (-not $st3.data.processGuardActive) { throw 'Process guard is not active.' }
     $payload = 'Start-Sleep -Seconds 25; IEX (New-Object Net.WebClient).DownloadString(''http://127.0.0.1:9/a.ps1'')'
     $b64 = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($payload))
@@ -107,7 +98,6 @@ try {
     if (-not $pe) { throw 'No process event was recorded.' }
     Write-Host "Process guard: $($pe.headline) - $($pe.action)"
 
-    # A normal PowerShell command must keep running
     $ok = Start-Process -FilePath powershell.exe -ArgumentList @('-NoProfile', '-Command', 'Start-Sleep -Seconds 6') -PassThru
     Start-Sleep -Seconds 3
     if ($ok.HasExited) { throw 'Process guard killed a harmless PowerShell (false positive).' }

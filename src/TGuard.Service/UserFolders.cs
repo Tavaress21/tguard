@@ -56,7 +56,6 @@ public static class UserFolders
         var pub = Path.Combine(Path.GetPathRoot(Environment.SystemDirectory) ?? "C:\\", "Users", "Public");
         if (Directory.Exists(pub)) deep.Add(pub);
         var list = deep.Select(d => (d, 6)).ToList();
-        // loose executables at the top of AppData/ProgramData (common malware drop spots)
         list.AddRange(Resolve(new[] { "%APPDATA%", "%LOCALAPPDATA%" }).Select(d => (d, 1)));
         var programData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
         if (Directory.Exists(programData)) list.Add((programData, 1));

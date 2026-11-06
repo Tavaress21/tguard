@@ -1,6 +1,3 @@
-# End-to-end auto-update test (run by GitHub Actions on Windows):
-# installs the current build, serves a signed "99.0.0" from localhost with the test keys,
-# asks the service to update and checks that it installed the new version on its own.
 $ErrorActionPreference = 'Stop'
 $appId = '{CEFAB7AD-A3D3-426B-A093-8AB27FB4FB96}_is1'
 $uninstallKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\$appId"
@@ -25,13 +22,11 @@ function Wait-Service {
     throw 'Service did not come up.'
 }
 
-# 1) install the current build
 $current = Get-ChildItem publish\TGuard-Setup-*.exe | Where-Object Name -notlike '*99.0.0*' | Select-Object -First 1
 Start-Process $current.FullName -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait
 Wait-Service
 Write-Host "Installed: $((Get-ItemProperty $uninstallKey).DisplayVersion)"
 
-# 2) build a "newer" installer and publish it with the throwaway test keys
 & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /Q /DAppVersion=99.0.0 installer\TGuard.iss
 if ($LASTEXITCODE -ne 0) { throw 'Could not build the 99.0.0 installer.' }
 $serve = Join-Path $env:TEMP 'tguard-update-server'
@@ -43,7 +38,6 @@ $env:TGUARD_FEEDS_KEY = Get-Content tests\TGuard.Tests\keys\test-feeds.key.pem -
 ./publish/cli/tguard.exe publish-feeds (Join-Path $serve 'updates') server\lists
 Remove-Item publish\TGuard-Setup-99.0.0.exe
 
-# tiny static file server on loopback
 $server = Start-Job -ArgumentList $serve -ScriptBlock {
     param($root)
     $listener = New-Object System.Net.HttpListener
@@ -71,7 +65,6 @@ try {
     }
     if (-not $up) { Receive-Job $server; throw 'Local update server did not start.' }
 
-    # 3) point the installed service at the local server (admin-only settings)
     $settingsPath = "$env:ProgramData\TGuard\settings.json"
     $settings = Get-Content $settingsPath -Raw | ConvertFrom-Json
     $settings.UpdateUrl = 'http://127.0.0.1:8765/updates/'
@@ -80,7 +73,6 @@ try {
     Restart-Service TGuard
     Wait-Service
 
-    # 4) update now; the service downloads, verifies and runs the installer by itself
     $rep = Send-TGuard 'update.now'
     Write-Host "Update report: $($rep.data | ConvertTo-Json -Compress)"
     if (-not ($rep.data.sources -contains 'TGuard')) { throw 'Signed feeds were not accepted.' }
