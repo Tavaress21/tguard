@@ -215,9 +215,10 @@ public sealed class RansomwareGuard : BackgroundService
         CriticalNames.Contains(Path.GetFileName(exe))
         || exe.StartsWith(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..")), StringComparison.OrdinalIgnoreCase);
 
-    private IEnumerable<(int Pid, string Exe)> RecentSuspects(TimeSpan window)
+    private List<(int Pid, string Exe)> RecentSuspects(TimeSpan window)
     {
         var since = DateTime.Now - window;
+        var candidates = new List<(int Pid, string Exe, bool Strong)>();
         foreach (var p in Process.GetProcesses())
         {
             using (p)
@@ -230,11 +231,46 @@ public sealed class RansomwareGuard : BackgroundService
                 var name = Path.GetFileName(exe);
                 if (CommandLineAnalyzer.ScriptHosts.Contains(name))
                 {
-                    if (CommandLineOf(p.Id) is string cmd && CommandLineAnalyzer.Analyze(_state.Engine, name, cmd).Score >= 40) yield return (p.Id, exe);
+                    if (CommandLineOf(p.Id) is string cmd && CommandLineAnalyzer.Analyze(_state.Engine, name, cmd).Score >= 40)
+                        candidates.Add((p.Id, exe, true));
                 }
-                else if (!IsTrustedImage(exe)) yield return (p.Id, exe);
+                else if (!IsTrustedImage(exe)) candidates.Add((p.Id, exe, IsUserWritable(exe)));
             }
         }
+        if (candidates.Count == 0) return new();
+
+        var before = candidates.ToDictionary(c => c.Pid, c => WriteCounters(c.Pid));
+        Thread.Sleep(1500);
+        var result = new List<(int, string)>();
+        foreach (var c in candidates)
+        {
+            var (bytes0, ops0) = before[c.Pid];
+            var (bytes1, ops1) = WriteCounters(c.Pid);
+            var busy = bytes1 - bytes0 > 2 * 1024 * 1024 || ops1 - ops0 > 150;
+            if (busy || (c.Strong && bytes1 - bytes0 > 64 * 1024)) result.Add((c.Pid, c.Exe));
+        }
+        return result;
+    }
+
+    private static readonly string[] UserWritableMarkers = { "\\Downloads\\", "\\AppData\\Local\\Temp\\", "\\AppData\\Roaming\\", "\\Desktop\\", "\\Users\\Public\\", "\\ProgramData\\" };
+
+    private static bool IsUserWritable(string exe) => UserWritableMarkers.Any(m => exe.Contains(m, StringComparison.OrdinalIgnoreCase));
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct IO_COUNTERS
+    {
+        public ulong ReadOperationCount, WriteOperationCount, OtherOperationCount, ReadTransferCount, WriteTransferCount, OtherTransferCount;
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool GetProcessIoCounters(IntPtr process, out IO_COUNTERS counters);
+
+    private static (long Bytes, long Ops) WriteCounters(int pid)
+    {
+        var h = OpenProcess(0x1000, false, pid);
+        if (h == IntPtr.Zero) return (0, 0);
+        try { return GetProcessIoCounters(h, out var c) ? ((long)c.WriteTransferCount, (long)c.WriteOperationCount) : (0, 0); }
+        finally { CloseHandle(h); }
     }
 
     private bool IsTrustedImage(string exe)
