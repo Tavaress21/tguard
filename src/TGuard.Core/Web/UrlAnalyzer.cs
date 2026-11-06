@@ -168,7 +168,13 @@ public sealed class UrlAnalyzer
             if (scheme is "javascript" or "data" or "vbscript") { r.Add(new(40, Loc.T("url.scheme", scheme), "url")); return r; }
         }
         if (!Uri.TryCreate(url, UriKind.Absolute, out var u) || (u.Scheme != "http" && u.Scheme != "https")) return r;
-        var host = u.IdnHost.ToLowerInvariant();
+        string host;
+        try { host = u.IdnHost.ToLowerInvariant(); }
+        catch (Exception ex) when (ex is UriFormatException or ArgumentException or InvalidOperationException)
+        {
+            r.Add(new(30, Loc.T("url.punycode", u.Host), "url"));
+            return r;
+        }
         if (host.Length == 0) return r;
         var shortUrl = url.Length < 90 ? url : url[..87] + "...";
 

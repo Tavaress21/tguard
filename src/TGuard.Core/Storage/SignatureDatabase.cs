@@ -134,7 +134,15 @@ public sealed class UrlBlocklist
         lock (_lock)
         {
             if (_urls.Contains(url)) return true;
-            return Uri.TryCreate(url, UriKind.Absolute, out var u) && _hosts.Contains(u.Host);
+            if (_hosts.Count == 0 || !Uri.TryCreate(url, UriKind.Absolute, out var u)) return false;
+            var host = u.Host.TrimEnd('.');
+            while (true)
+            {
+                if (_hosts.Contains(host)) return true;
+                var dot = host.IndexOf('.');
+                if (dot < 0 || host.IndexOf('.', dot + 1) < 0) return false;
+                host = host[(dot + 1)..];
+            }
         }
     }
 }

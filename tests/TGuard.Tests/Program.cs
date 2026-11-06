@@ -655,6 +655,57 @@ internal static class EmailTests
     }
 }
 
+internal static class RobustnessTests
+{
+    private static readonly ScanEngine E = new(new TGuardSettings(), new SignatureDatabase(), RuleEngine.LoadDefault(Array.Empty<string>())) { UseWindowsContext = false };
+
+    [Test] static void MalformedEmailsNeverCrash()
+    {
+        var rnd = new Random(42);
+        var seed = EmailTests.Message("\"A\" <a@example.pt>", "=?UTF-8?B?bad", "<a href=\"http://x\">y</a>", ("f.zip", Samples.Zip(("a.txt", new byte[] { 1, 2 }))));
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        for (var i = 0; i < 400; i++)
+        {
+            var data = (byte[])seed.Clone();
+            var cut = rnd.Next(1, data.Length);
+            if (i % 3 == 0) data = data[..cut];
+            for (var k = 0; k < rnd.Next(1, 30); k++) data[rnd.Next(data.Length)] = (byte)rnd.Next(256);
+            var m = MimeMessage.Parse(data);
+            EmailScanner.Scan(E, m);
+        }
+        Assert.True(sw.ElapsedMilliseconds < 20000, $"too slow: {sw.ElapsedMilliseconds} ms");
+    }
+
+    [Test] static void HugeHeaderAndDeepNestingAreBounded()
+    {
+        var sb = new StringBuilder("Subject: x\r\nContent-Type: multipart/mixed; boundary=\"b0\"\r\n\r\n");
+        for (var i = 0; i < 40; i++) sb.Append($"--b{i}\r\nContent-Type: multipart/mixed; boundary=\"b{i + 1}\"\r\n\r\n");
+        sb.Append("--b40\r\nContent-Type: text/plain\r\n\r\nhello\r\n");
+        var m = MimeMessage.Parse(Encoding.ASCII.GetBytes(sb.ToString()));
+        Assert.True(m.Text.Length == 0 || m.Text.Contains("hello"), "nested text");
+        var big = Encoding.ASCII.GetBytes("Subject: " + new string('a', 2_000_000) + "\r\n\r\nbody");
+        Assert.Equal(2_000_000, MimeMessage.Parse(big).Subject.Length);
+    }
+
+    [Test] static void RandomFilesNeverCrashTheEngine()
+    {
+        var rnd = new Random(7);
+        var headers = new[] { "MZ"u8.ToArray(), "PK\u0003\u0004"u8.ToArray(), "%PDF-1.7"u8.ToArray(), new byte[] { 0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1 },
+                              "{\\rtf1"u8.ToArray(), "<html>"u8.ToArray(), new byte[] { 0x4C, 0, 0, 0, 1, 0x14, 2, 0 } };
+        for (var i = 0; i < 300; i++)
+        {
+            var data = new byte[rnd.Next(8, 20000)];
+            rnd.NextBytes(data);
+            headers[i % headers.Length].CopyTo(data, 0);
+            var r = E.ScanBytes(data, $"f{i}.bin");
+            Assert.True(r.Error is null || r.Error.Length > 0, "error state");
+        }
+        var zipBomb = Samples.Zip(("a.bin", new byte[50_000_000]));
+        var bomb = E.ScanBytes(zipBomb, "bomb.zip");
+        Assert.True(bomb.Score >= 0, "zip bomb");
+    }
+}
+
 internal static class RansomwareTests
 {
     [Test] static void CanaryChangeIsDetected()
@@ -704,6 +755,17 @@ internal static class UrlTests
     [Test] static void LegitLinkMbway() => Assert.Equal(0, U.Analyze("https://www.mbway.pt/").Count);
     [Test] static void AnchorTextMismatch() => Assert.True(U.Analyze("https://evil.example/x", "www.millenniumbcp.pt").Any(f => f.Score == 40));
     [Test] static void IpAddressUrl() => Assert.True(U.Analyze("http://185.22.1.9/cgd/login").Sum(f => f.Score) >= 45);
+    [Test] static void BlocklistedHostCoversSubdomains()
+    {
+        var b = new UrlBlocklist();
+        b.Add(new[] { "host:burla.example", "http://phish.example/login" });
+        Assert.True(b.Contains("https://pagar.burla.example/x"), "subdomain");
+        Assert.True(b.Contains("https://burla.example/"), "host");
+        Assert.True(!b.Contains("https://naoburla.example/"), "similar host");
+        Assert.True(!b.Contains("https://example/"), "tld only");
+        Assert.True(b.Contains("http://phish.example/login"), "exact url");
+    }
+
     [Test] static void OfficialSitesAreNotFlagged()
     {
         foreach (var u in new[]
