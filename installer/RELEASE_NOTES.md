@@ -1,3 +1,16 @@
+What's new in 0.5.1
+
+- Far fewer false positives. A sweep of almost 300,000 clean files (Windows, Program Files and
+  popular installers such as Chrome, Firefox, Zoom, Steam, Autenticação.gov and Visual Studio)
+  now runs every week in CI. This release fixes everything it found:
+  - text files such as C/C++ headers, libraries, logs and documentation are no longer treated
+    as scripts;
+  - software installed in Program Files or Windows needs much stronger evidence before it is
+    flagged;
+  - names like "Ionic.Zip.dll" or "Template.doc.vb" are no longer reported as fake double
+    extensions;
+  - Start menu shortcuts that open a developer command prompt are no longer flagged.
+
 What's new in 0.5.0
 
 - Live chat inside TGuard: open Help to talk to luis-tavares.pt without leaving the app. If the

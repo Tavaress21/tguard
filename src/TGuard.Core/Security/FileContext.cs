@@ -18,6 +18,36 @@ public sealed record WebOrigin(int ZoneId, string? HostUrl, string? ReferrerUrl)
 
 public static class FileContext
 {
+    private static readonly string[] ProtectedRoots = BuildProtectedRoots();
+    private static readonly string[] WritableInside = { "\\Temp\\", "\\Tasks\\", "\\spool\\", "\\Tracing\\", "\\Debug\\", "\\Registration\\CRMLog\\" };
+
+    public static bool IsProtectedLocation(string path)
+    {
+        if (ProtectedRoots.Length == 0 || string.IsNullOrEmpty(path)) return false;
+        string full;
+        try { full = Path.GetFullPath(path); }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException) { return false; }
+        if (!ProtectedRoots.Any(root => full.StartsWith(root, StringComparison.OrdinalIgnoreCase))) return false;
+        return !WritableInside.Any(part => full.Contains(part, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string[] BuildProtectedRoots()
+    {
+        if (!OperatingSystem.IsWindows()) return Array.Empty<string>();
+        var windows = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+        var roots = new[]
+        {
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+            Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
+            Environment.GetEnvironmentVariable("ProgramW6432"),
+            string.IsNullOrEmpty(windows) ? null : Path.Combine(windows, "System32"),
+            string.IsNullOrEmpty(windows) ? null : Path.Combine(windows, "SysWOW64"),
+            string.IsNullOrEmpty(windows) ? null : Path.Combine(windows, "WinSxS"),
+            Environment.GetFolderPath(Environment.SpecialFolder.CommonStartMenu),
+        };
+        return roots.Where(r => !string.IsNullOrEmpty(r)).Select(r => r!.TrimEnd('\\') + "\\").Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+
     public static WebOrigin? ReadWebOrigin(string path)
     {
         if (!OperatingSystem.IsWindows()) return null;

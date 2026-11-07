@@ -151,16 +151,19 @@ public sealed class ScanEngine
                     break;
             }
         }
-        Rescore(r, trustedSigner, microsoft);
+        var installed = origin is null && !trustedSigner && FileContext.IsProtectedLocation(path);
+        if (installed) r.Findings.Add(new(0, Loc.T("location.installed"), "location"));
+        Rescore(r, trustedSigner, microsoft, installed);
     }
 
-    private void Rescore(ScanResult r, bool trustedSigner, bool microsoft = false)
+    private void Rescore(ScanResult r, bool trustedSigner, bool microsoft = false, bool installed = false)
     {
         var own = Combine(r.Findings.Select(f => f.Score));
         var childMax = r.Children.Count > 0 ? r.Children.Max(c => c.Score) : 0;
         var score = Combine(new[] { own, childMax });
         var hardHit = r.Findings.Any(f => f.Source == "signature" || (f.Source.StartsWith("rule:") && f.Score >= Settings.ThresholdMalicious));
         if (trustedSigner && !hardHit) score = microsoft ? 0 : Math.Max(0, score - 35);
+        else if (installed && !hardHit) score = Math.Max(0, score - 35);
         r.Score = score;
         r.Verdict = VerdictFor(score);
         if (r.Verdict == Verdict.Clean) r.ThreatName = null;

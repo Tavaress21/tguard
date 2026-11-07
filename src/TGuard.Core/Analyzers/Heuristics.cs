@@ -27,8 +27,7 @@ public static class Heuristics
         if (baseName.Contains(Rtlo)) yield return new(60, Loc.T("name.rtlo"));
 
         var parts = baseName.ToLowerInvariant().Split('.');
-        if (parts.Length >= 3 && FileTypeDetector.DocExt.Contains("." + parts[^2])
-            && (FileTypeDetector.ExecExt.Contains(ext) || FileTypeDetector.ScriptExt.Contains(ext)))
+        if (parts.Length >= 3 && FileTypeDetector.DocExt.Contains("." + parts[^2]) && FileTypeDetector.LaunchExt.Contains(ext))
             yield return new(50, Loc.T("name.double", $".{parts[^2]}{ext}"));
         if (Regex.IsMatch(baseName, @"\s{5,}\.\w+$")) yield return new(40, Loc.T("name.spaces"));
         if (kind == FileKind.Pe && FileTypeDetector.DocExt.Contains(ext))

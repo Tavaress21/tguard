@@ -10,7 +10,10 @@ public static class FileTypeDetector
         { ".exe", ".scr", ".com", ".pif", ".cpl", ".dll", ".sys", ".msi", ".msp", ".ocx" };
     public static readonly HashSet<string> ScriptExt = new(StringComparer.OrdinalIgnoreCase)
         { ".js", ".jse", ".vbs", ".vbe", ".wsf", ".wsh", ".hta", ".ps1", ".psm1", ".bat", ".cmd",
-          ".vb", ".sct", ".jar", ".reg", ".py", ".msc", ".scf", ".url", ".appref-ms" };
+          ".sct", ".jar", ".reg", ".py", ".msc", ".scf", ".url", ".appref-ms" };
+    public static readonly HashSet<string> LaunchExt = new(StringComparer.OrdinalIgnoreCase)
+        { ".exe", ".scr", ".com", ".pif", ".cpl", ".msi", ".js", ".jse", ".vbs", ".vbe", ".wsf", ".wsh", ".hta",
+          ".ps1", ".bat", ".cmd", ".jar", ".lnk", ".url", ".reg", ".sct", ".msc" };
     public static readonly HashSet<string> ContainerExt = new(StringComparer.OrdinalIgnoreCase)
         { ".iso", ".img", ".vhd", ".vhdx", ".one", ".appx", ".msix", ".appxbundle" };
     public static readonly HashSet<string> DocExt = new(StringComparer.OrdinalIgnoreCase)

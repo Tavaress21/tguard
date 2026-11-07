@@ -321,6 +321,22 @@ internal static class ProcessTests
         Assert.True(r.Verdict != Verdict.Clean, string.Join(" | ", r.AllReasons()));
     }
 
+    [Test] static void DeveloperFilesAreNotThreats()
+    {
+        var header = Encoding.ASCII.GetBytes("WINBASEAPI LPVOID WINAPI VirtualAllocEx(HANDLE);\nWINBASEAPI BOOL WINAPI WriteProcessMemory(HANDLE);\nWINBASEAPI HANDLE WINAPI CreateRemoteThread(HANDLE);\n");
+        Assert.Equal(Verdict.Clean, E.ScanBytes(header, "processthreadsapi.h").Verdict);
+        Assert.Equal(Verdict.Clean, E.ScanBytes(header, "kernel32.Lib").Verdict);
+        var log = Encoding.ASCII.GetBytes("Event 4104: powershell.exe -enc " + new string('A', 120));
+        Assert.Equal(Verdict.Clean, E.ScanBytes(log, "Windows PowerShell.evtx").Verdict);
+        Assert.Equal(Verdict.Clean, E.ScanBytes(Encoding.ASCII.GetBytes("Public Class ThisDocument\nEnd Class"), "TemplateFX20.doc.vb").Verdict);
+        Assert.Equal(Verdict.Clean, E.ScanBytes(Encoding.ASCII.GetBytes("MZ" + new string('\0', 500)), "Ionic.Zip.dll").Verdict);
+        Assert.True(E.ScanBytes(Encoding.ASCII.GetBytes("x"), "fatura.pdf.js").Findings.Any(f => f.Message.Contains(".pdf.js")), "double extension on a script still flagged");
+        var note = Encoding.ASCII.GetBytes("All your files have been encrypted. Send 0.1 bitcoin wallet address below to get the decryption tool.");
+        Assert.True(E.ScanBytes(note, "README_DECRYPT.txt").Findings.Any(f => f.Source == "rule:Ransomware_Ransom_Note"), "ransom note in a text file still flagged");
+        var ps = Encoding.ASCII.GetBytes("$a=[Kernel32]::VirtualAllocEx($h,0,4096,0x3000,0x40);[Kernel32]::WriteProcessMemory($h,$a,$b,$b.Length,[ref]0);[Kernel32]::CreateRemoteThread($h,0,0,$a,0,0,[ref]0)");
+        Assert.True(E.ScanBytes(ps, "loader.ps1").Findings.Any(f => f.Source == "rule:Process_Injection"), "injection in a script still flagged");
+    }
+
     [Test] static void UsbAutorun()
     {
         var inf = Encoding.ASCII.GetBytes("[AutoRun]\r\nopen=RECYCLER\\x.exe\r\nicon=x.ico\r\n");

@@ -24,7 +24,7 @@
     },
     "condition": "ps and (enc or (hidden and bypass))",
     "filetypes": [
-      "any"
+      "code"
     ]
   },
   {
@@ -48,7 +48,7 @@
     },
     "condition": "(iex and dl) or chain",
     "filetypes": [
-      "any"
+      "code"
     ]
   },
   {
@@ -80,7 +80,7 @@
     },
     "condition": "any",
     "filetypes": [
-      "any"
+      "code"
     ]
   },
   {
@@ -132,7 +132,7 @@
     },
     "condition": "any",
     "filetypes": [
-      "any"
+      "code"
     ]
   },
   {
@@ -190,8 +190,7 @@
     },
     "condition": "3",
     "filetypes": [
-      "script",
-      "data"
+      "script"
     ]
   },
   {
@@ -219,8 +218,7 @@
     },
     "condition": "(a or b or c) and d and net",
     "filetypes": [
-      "script",
-      "data"
+      "script"
     ]
   },
   {
@@ -245,8 +243,7 @@
     },
     "condition": "3",
     "filetypes": [
-      "script",
-      "data"
+      "script"
     ]
   },
   {
@@ -266,7 +263,7 @@
     },
     "condition": "all",
     "filetypes": [
-      "any"
+      "code"
     ]
   },
   {
@@ -297,7 +294,7 @@
     },
     "condition": "2",
     "filetypes": [
-      "any"
+      "code"
     ]
   },
   {
@@ -413,7 +410,7 @@
         "nocase": true
       },
       "args": {
-        "regex": "(/c\\s|/k\\s|-e(nc|ncodedcommand)?\\s|-w(indowstyle)?\\s+h|iex|invoke-|downloadstring|frombase64|https?://|\\\\\\\\[a-z0-9.-]+\\\\|%temp%|%appdata%|\\.(ps1|vbs|js|hta|bat)\\b)",
+        "regex": "(-e(nc|ncodedcommand)?\\s|-w(indowstyle)?\\s+h|iex|invoke-|downloadstring|frombase64|https?://|\\\\\\\\[a-z0-9.-]+\\\\|%temp%|%appdata%|%public%|\\.(ps1|vbs|vbe|js|jse|hta|wsf)\\b)",
         "nocase": true
       }
     },
@@ -443,7 +440,7 @@
     },
     "condition": "any",
     "filetypes": [
-      "any"
+      "code"
     ]
   },
   {
@@ -467,7 +464,7 @@
     },
     "condition": "a or (b and c)",
     "filetypes": [
-      "any"
+      "code"
     ]
   },
   {
@@ -491,7 +488,7 @@
     },
     "condition": "a or (b and c)",
     "filetypes": [
-      "any"
+      "code"
     ]
   },
   {
@@ -515,7 +512,7 @@
     },
     "condition": "all",
     "filetypes": [
-      "any"
+      "code"
     ]
   },
   {

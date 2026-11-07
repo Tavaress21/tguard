@@ -34,7 +34,9 @@ public sealed class CompiledRule
     public string Description => Loc.Pick(Def.DescriptionPt, Def.DescriptionEn);
 
     public bool AppliesTo(string category) =>
-        Def.FileTypes.Contains(category) || (Def.FileTypes.Contains("any") && category != "pe");
+        Def.FileTypes.Contains(category)
+        || (Def.FileTypes.Contains("any") && category != "pe")
+        || (Def.FileTypes.Contains("code") && category is not ("pe" or "data"));
 
     public bool Matches(string latin1)
     {
