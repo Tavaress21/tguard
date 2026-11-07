@@ -93,6 +93,51 @@ public sealed class SiteClient
         resp.EnsureSuccessStatusCode();
     }
 
+    public async Task<bool> ChatOnlineAsync(CancellationToken ct = default)
+    {
+        using var resp = await PostAsync("api/tguard/chat/estado", new { }, ct);
+        resp.EnsureSuccessStatusCode();
+        using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct));
+        return doc.RootElement.TryGetProperty("online", out var online) && online.ValueKind == JsonValueKind.True;
+    }
+
+    public async Task<ChatStart> StartChatAsync(string installId, string? token, string name, string? email, string body, bool remote, CancellationToken ct = default)
+    {
+        using var resp = await PostAsync("api/tguard/chat", new
+        {
+            InstallId = installId,
+            Token = token,
+            Name = Trim(name, 100),
+            Email = string.IsNullOrWhiteSpace(email) ? null : Trim(email.Trim(), 255),
+            Body = Trim(body, 2000),
+            Remote = remote,
+        }, ct);
+        if (resp.StatusCode == HttpStatusCode.Conflict)
+        {
+            using var error = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct));
+            return new ChatStart { Error = error.RootElement.TryGetProperty("error", out var e) ? e.GetString() : "offline" };
+        }
+        resp.EnsureSuccessStatusCode();
+        return await resp.Content.ReadFromJsonAsync<ChatStart>(Json, ct) ?? throw new InvalidDataException("empty answer");
+    }
+
+    public async Task<ChatUpdate> ChatMessagesAsync(long conversationId, string accessToken, long afterId, CancellationToken ct = default)
+    {
+        using var resp = await PostAsync($"api/tguard/chat/{conversationId}/mensagens", new { Token = accessToken, AfterId = afterId }, ct);
+        if (resp.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.NotFound) return new ChatUpdate { Status = "gone" };
+        resp.EnsureSuccessStatusCode();
+        return await resp.Content.ReadFromJsonAsync<ChatUpdate>(Json, ct) ?? new ChatUpdate();
+    }
+
+    public async Task<ChatMessage?> SendChatAsync(long conversationId, string accessToken, string installId, string body, bool remote, CancellationToken ct = default)
+    {
+        using var resp = await PostAsync($"api/tguard/chat/{conversationId}/enviar", new { Token = accessToken, InstallId = installId, Body = Trim(body, 2000), Remote = remote }, ct);
+        if (resp.StatusCode == HttpStatusCode.Conflict) return null;
+        resp.EnsureSuccessStatusCode();
+        using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct));
+        return doc.RootElement.TryGetProperty("message", out var m) ? m.Deserialize<ChatMessage>(Json) : null;
+    }
+
     public async Task<int> ReportAsync(string installId, string? token, ReportRequest report, CancellationToken ct = default)
     {
         using var resp = await PostAsync("api/tguard/denuncia", new

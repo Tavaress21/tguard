@@ -138,3 +138,41 @@ public sealed class AccountStatus
     public bool UsageStats { get; set; }
     public bool RemoteControl { get; set; }
 }
+
+public sealed class ChatMessage
+{
+    public long Id { get; set; }
+    public bool FromAdmin { get; set; }
+    public string Body { get; set; } = "";
+    public DateTimeOffset? CreatedAt { get; set; }
+    public string? AdminName { get; set; }
+    public string? AttachmentUrl { get; set; }
+    public string? AttachmentName { get; set; }
+}
+
+public sealed class ChatStart
+{
+    public long ConversationId { get; set; }
+    public string AccessToken { get; set; } = "";
+    public List<ChatMessage> Messages { get; set; } = new();
+    public string? Error { get; set; }
+}
+
+public sealed class ChatUpdate
+{
+    public string Status { get; set; } = "open";
+    public string? Agent { get; set; }
+    public List<ChatMessage> Messages { get; set; } = new();
+}
+
+public sealed class ChatState
+{
+    public bool Online { get; set; }
+    public bool Active { get; set; }
+    public string Status { get; set; } = "";
+    public string? Agent { get; set; }
+    public string? Name { get; set; }
+    public string? Email { get; set; }
+    public List<ChatMessage> Messages { get; set; } = new();
+    public string? Error { get; set; }
+}

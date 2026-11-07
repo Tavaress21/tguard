@@ -46,6 +46,7 @@ public partial class MainWindow : Window
         "check" => new CheckView(),
         "history" => new HistoryView(),
         "settings" => new SettingsView(),
+        "help" => new ChatView(),
         _ => new DashboardView(),
     };
 

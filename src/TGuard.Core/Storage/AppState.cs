@@ -16,6 +16,8 @@ public sealed class AppState
     public DateTimeOffset? LastPing { get; set; }
     public DateTimeOffset? LastSyncedEvent { get; set; }
     public PendingUpdate? PendingUpdate { get; set; }
+    public long? ChatId { get; set; }
+    public string? ChatToken { get; set; }
 
     public string EnsureInstallId()
     {

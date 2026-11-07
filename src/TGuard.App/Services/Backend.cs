@@ -314,6 +314,29 @@ public sealed class Backend
 
     public async Task SnoozeUpdateAsync(int hours = 24) => await Call("update.snooze", new { hours });
 
+    public async Task<ChatState> ChatStateAsync(long afterId) =>
+        (await ChatCall("chat.state", new { afterId })).As<ChatState>() ?? new ChatState();
+
+    public async Task<ChatState> StartChatAsync(string name, string? email, string body, bool remote) =>
+        (await ChatCall("chat.start", new { name, email = email ?? "", body, remote })).As<ChatState>() ?? new ChatState();
+
+    public async Task<ChatMessage?> SendChatAsync(string body, bool remote)
+    {
+        var r = await new ServiceClient(40_000).SendAsync("chat.send", new { body, remote });
+        if (!r.Ok) return r.Error == "closed" ? null : throw new InvalidOperationException(r.Error);
+        return r.As<ChatMessage>();
+    }
+
+    public async Task ResetChatAsync() => await ChatCall("chat.reset");
+
+    private async Task<Response> ChatCall(string cmd, object? args = null)
+    {
+        if (!_serviceAvailable) throw new InvalidOperationException(S.T("service.required"));
+        var r = await new ServiceClient(40_000).SendAsync(cmd, args);
+        if (!r.Ok) throw new InvalidOperationException(r.Error);
+        return r;
+    }
+
     public async Task<int> ReportAsync(ReportRequest report) =>
         (await Call("report.send", report)).Data?["id"]?.GetValue<int>() ?? 0;
 

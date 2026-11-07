@@ -143,6 +143,12 @@ public partial class App : Application
         catch (Exception) { }
     }
 
+    public void NotifyChat(string? agent, string body)
+    {
+        var text = body.Length > 160 ? body[..160] + "…" : body;
+        _tray?.Notify(agent is { Length: > 0 } ? agent : "luis-tavares.pt", text, false);
+    }
+
     public void ShowMain()
     {
         if (MainWindow is null) return;

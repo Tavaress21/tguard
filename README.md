@@ -65,7 +65,8 @@ anything by itself. See [`server/`](server/README.md).
 account. The client area then shows the protection status of each PC, the threats it found, the
 quarantine, the protected email accounts and the Windows security check, and, if you allow it on
 the PC, can ask it to scan, update or change a protection. From the app you can also report a scam or a false
-positive and open a support ticket.
+positive, open a support ticket, or use the live chat in Help, which can also ask for remote
+assistance through Windows Quick Assist.
 
 ## Installing
 

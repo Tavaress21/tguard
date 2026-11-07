@@ -1,3 +1,12 @@
+What's new in 0.5.0
+
+- Live chat inside TGuard: open Help to talk to luis-tavares.pt without leaving the app. If the
+  PC is linked to your account, your name and email are filled in for you, and replies show up as
+  a notification even when TGuard is in the tray.
+- "Ask for remote assistance": tells the technician you need help on your screen. They send you a
+  code in the chat and you connect with Windows Quick Assist, so nothing happens without your
+  permission and you can end the session at any time.
+
 What's new in 0.4.0
 
 - New versions are no longer installed behind your back: when one is ready, TGuard asks

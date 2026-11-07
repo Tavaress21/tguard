@@ -25,6 +25,7 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<UpdateService>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<RansomwareGuard>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<EmailGuard>());
 builder.Services.AddSingleton<SiteSync>();
+builder.Services.AddSingleton<SupportChat>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<SiteSync>());
 builder.Services.AddHostedService<PipeServer>();
 builder.Services.AddHostedService<Scheduler>();

@@ -47,6 +47,7 @@
                     <RadioButton Style="{StaticResource NavItem}" GroupName="nav" Tag="check" Checked="Nav_Checked" Content="{s:Tr nav.check}" />
                     <RadioButton Style="{StaticResource NavItem}" GroupName="nav" Tag="history" Checked="Nav_Checked" Content="{s:Tr nav.history}" />
                     <Border Height="1" Background="#22FFFFFF" Margin="10,12" />
+                    <RadioButton Style="{StaticResource NavItem}" GroupName="nav" Tag="help" Checked="Nav_Checked" Content="{s:Tr nav.help}" />
                     <RadioButton Style="{StaticResource NavItem}" GroupName="nav" Tag="settings" Checked="Nav_Checked" Content="{s:Tr nav.settings}" />
                 </StackPanel>
             </DockPanel>

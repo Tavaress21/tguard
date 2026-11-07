@@ -475,6 +475,20 @@ internal static class UpdateTests
             new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web) { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower });
         Assert.True(detailed.Contains("\"remote_control\":true") && detailed.Contains("\"quarantine_items\":[{\"id\":\"q1\""), detailed);
 
+        var chat = new FakeHttp(new()
+        {
+            [site + "api/tguard/chat/estado"] = "{\"online\":true}",
+            [site + "api/tguard/chat"] = "{\"ok\":true,\"conversation_id\":5,\"access_token\":\"tok\",\"messages\":[{\"id\":1,\"from_admin\":false,\"body\":\"Ol\u00e1\",\"created_at\":\"2026-11-07T12:00:00+00:00\"}]}",
+            [site + "api/tguard/chat/5/mensagens"] = "{\"ok\":true,\"status\":\"open\",\"agent\":\"Lu\u00eds\",\"messages\":[{\"id\":2,\"from_admin\":true,\"body\":\"C\u00f3digo 123\",\"admin_name\":\"Lu\u00eds\"}]}",
+        });
+        var cc = new SiteClient(settings, chat);
+        Assert.True(cc.ChatOnlineAsync().GetAwaiter().GetResult(), "chat online not read");
+        var started = cc.StartChatAsync(Guid.NewGuid().ToString(), null, "Ana", null, "Olá", true).GetAwaiter().GetResult();
+        Assert.True(started.ConversationId == 5 && started.AccessToken == "tok" && started.Messages.Count == 1 && started.Error is null, "chat start not read");
+        var upd = cc.ChatMessagesAsync(5, "tok", 1).GetAwaiter().GetResult();
+        Assert.True(upd.Agent == "Luís" && upd.Messages[0].FromAdmin && upd.Messages[0].AdminName == "Luís", "chat messages not read");
+        Assert.Equal("gone", cc.ChatMessagesAsync(6, "tok", 0).GetAwaiter().GetResult().Status);
+
         var threw = false;
         try { new SiteClient(new TGuardSettings { SiteUrl = "http://site.example/" }); } catch (UriFormatException) { threw = true; }
         Assert.True(threw, "plain http site accepted");

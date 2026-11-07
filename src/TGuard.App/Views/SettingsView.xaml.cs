@@ -176,7 +176,7 @@ public partial class SettingsView : UserControl, IRefreshable
         Dialog.Alert(S.T("web.install"), S.T("web.steps") + "\n\n" + dir, DialogKind.Info);
     }
 
-    private void Help_Click(object sender, RoutedEventArgs e) => Open(SiteClient.HelpUrl(_settings));
+    private void Help_Click(object sender, RoutedEventArgs e) => (Application.Current.MainWindow as MainWindow)?.Navigate("help");
 
     private void ReportScam_Click(object sender, RoutedEventArgs e) => Open(SiteClient.ReportUrl(_settings));
 

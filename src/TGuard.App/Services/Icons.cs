@@ -28,6 +28,7 @@ public static class Glyph
     public const string Recent = "";
     public const string List = "";
     public const string Tag = "";
+    public const string Chat = "\uE8BD";
     public const string Document = "";
 }
 
@@ -42,6 +43,7 @@ public sealed class NavIconConverter : IValueConverter
         "check" => Glyph.Diagnostic,
         "history" => Glyph.History,
         "settings" => Glyph.Settings,
+        "help" => Glyph.Chat,
         _ => "",
     };
 

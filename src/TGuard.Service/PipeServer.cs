@@ -21,11 +21,13 @@ public sealed class PipeServer : BackgroundService
     private readonly RansomwareGuard _ransomware;
     private readonly EmailGuard _email;
     private readonly SiteSync _sync;
+    private readonly SupportChat _chat;
 
     public PipeServer(ServiceState state, ScanManager scans, ILogger<PipeServer> log,
                       RealtimeProtection realtime, ProcessGuard processGuard, UsbGuard usb, UpdateService updates,
-                      RansomwareGuard ransomware, EmailGuard email, SiteSync sync)
+                      RansomwareGuard ransomware, EmailGuard email, SiteSync sync, SupportChat chat)
     {
+        _chat = chat;
         _sync = sync;
         _ransomware = ransomware;
         _email = email;
@@ -90,7 +92,7 @@ public sealed class PipeServer : BackgroundService
     private static readonly HashSet<string> Privileged = new()
         { "settings.set", "quarantine.restore", "quarantine.delete", "scan.cancel", "trust.remove",
           "account.link.start", "account.link.poll", "account.unlink", "report.send", "email.add", "email.remove",
-          "update.install", "update.snooze" };
+          "update.install", "update.snooze", "chat.state", "chat.start", "chat.send", "chat.reset" };
 
     private AccountStatus Account() => new()
     {
@@ -231,6 +233,19 @@ public sealed class PipeServer : BackgroundService
                 }
                 return Response.Success(Account());
             }
+            case "chat.state":
+                return Response.Success(await _chat.StateAsync(req.Args?["afterId"]?.GetValue<long>() ?? 0));
+            case "chat.start":
+                return Response.Success(await _chat.StartAsync(Arg("name"), Arg("email"), Arg("body"), req.Args?["remote"]?.GetValue<bool>() ?? false));
+            case "chat.send":
+            {
+                var message = await _chat.SendAsync(Arg("body"), req.Args?["remote"]?.GetValue<bool>() ?? false);
+                return message is null ? Response.Fail("closed") : Response.Success(message);
+            }
+            case "chat.reset":
+                _chat.Reset();
+                return Response.Success();
+
             case "report.send":
             {
                 var report = req.Args?.Deserialize<ReportRequest>(Protocol.Json) ?? throw new ArgumentException("invalid report");
