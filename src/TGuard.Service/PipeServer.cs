@@ -222,10 +222,7 @@ public sealed class PipeServer : BackgroundService
             case "account.unlink":
             {
                 var token = _state.State.AccountToken;
-                _state.State.AccountToken = null;
-                _state.State.AccountName = null;
-                _state.State.AccountEmail = null;
-                _state.State.Save();
+                _state.ForgetAccount();
                 if (!string.IsNullOrEmpty(token))
                 {
                     try { await new SiteClient(_state.Settings).UnlinkAsync(token); }

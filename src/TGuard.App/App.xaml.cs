@@ -76,7 +76,11 @@ public partial class App : Application
                 Dispatcher.BeginInvoke(() => _tray?.Notify(n.Title, n.Message, n.Kind is "threat" or "ransomware"));
         };
 
-        Backend.Reconnected += () => Dispatcher.BeginInvoke(() => win.RefreshCurrent());
+        Backend.Reconnected += () => Dispatcher.BeginInvoke(async () =>
+        {
+            win.RefreshCurrent();
+            if (win.IsVisible) await PromptAsync();
+        });
         var reconnect = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromSeconds(10) };
         reconnect.Tick += async (_, _) => { if (!Backend.ServiceAvailable) await Backend.ConnectAsync(); };
         reconnect.Start();

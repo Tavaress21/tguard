@@ -99,14 +99,12 @@ public sealed class SiteSync : ResilientService
             st.LastPing = DateTimeOffset.Now;
             if (events.Count > 0) st.LastSyncedEvent = events.Max(e => e.Date);
             lock (_results) _results.RemoveAll(r => results.Any(x => x.Id == r.Id));
-            if (response.AccountRevoked)
+            if (response.AccountRevoked) _state.ForgetAccount();
+            else
             {
-                st.AccountToken = null;
-                st.AccountName = null;
-                st.AccountEmail = null;
+                if (response.AccountName is not null) st.AccountName = response.AccountName;
+                st.Save();
             }
-            else if (response.AccountName is not null) st.AccountName = response.AccountName;
-            st.Save();
             foreach (var command in response.Commands) _ = Task.Run(() => RunAsync(command, ct), ct);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or UriFormatException or InvalidOperationException or IOException)

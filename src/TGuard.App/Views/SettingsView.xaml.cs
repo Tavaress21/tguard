@@ -206,7 +206,7 @@ public partial class SettingsView : UserControl, IRefreshable
         _settings.Exclusions = Lines(Exclusions.Text);
         _settings.UsageStats = UsageStats.IsChecked == true;
         _settings.CommunitySharing = Community.IsChecked == true;
-        _settings.RemoteControl = RemoteControl.IsChecked == true;
+        _settings.RemoteControl = RemoteControl.IsEnabled && RemoteControl.IsChecked == true;
         _settings.PrivacyAsked = true;
         _settings.RansomwareProtection = Ransomware.IsChecked == true;
         _settings.EmailProtection = EmailOn.IsChecked == true;

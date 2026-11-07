@@ -10,6 +10,9 @@ What's new in 0.5.1
   - names like "Ionic.Zip.dll" or "Template.doc.vb" are no longer reported as fake double
     extensions;
   - Start menu shortcuts that open a developer command prompt are no longer flagged.
+- Unlinking a PC from your account also turns remote actions off, so linking it to another
+  account later never inherits the old permission.
+- The update and data-sharing questions also show up when TGuard reconnects to its service.
 
 What's new in 0.5.0
 

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using TGuard.Core;
 using TGuard.Core.Engine;
 using TGuard.Core.Ipc;
@@ -26,6 +27,18 @@ public sealed class ServiceState
         Settings.Save();
         Engine = ScanEngine.CreateDefault(Settings);
         _log.LogInformation("TGuard started: {Rules} rules, {Sigs} signatures", Engine.Rules.Rules.Count, Engine.Signatures.Count);
+    }
+
+    public void ForgetAccount()
+    {
+        State.AccountToken = null;
+        State.AccountName = null;
+        State.AccountEmail = null;
+        State.Save();
+        if (!Settings.RemoteControl) return;
+        var settings = JsonSerializer.Deserialize<TGuardSettings>(JsonSerializer.Serialize(Settings))!;
+        settings.RemoteControl = false;
+        UpdateSettings(settings);
     }
 
     public void UpdateSettings(TGuardSettings s)
