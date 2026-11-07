@@ -8,6 +8,7 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using TGuard.App.Views;
+using TGuard.Core;
 using TGuard.Core.Ipc;
 using TGuard.Core.Storage;
 
@@ -34,13 +35,14 @@ public static class SelfTest
             var win = new MainWindow { Left = -20000, Top = 0, ShowActivated = false, ShowInTaskbar = false, WindowStartupLocation = WindowStartupLocation.Manual };
             win.Show();
 
-            foreach (var key in new[] { "dashboard", "scan", "protections", "quarantine", "check", "history", "settings" })
+            foreach (var key in new[] { "dashboard", "scan", "protections", "quarantine", "check", "history", "help", "settings" })
             {
                 win.Navigate(key);
                 var view = (FrameworkElement)win.Host.Content;
                 if (view is IRefreshable r) await r.RefreshAsync();
                 if (view is ScanView sv) sv.Show(SampleScan());
                 if (view is CheckView cv) cv.Show(await App.Backend.CheckAsync());
+                if (view is ChatView chat) chat.Preview(SampleChat());
                 await Task.Delay(300);
                 win.UpdateLayout();
                 Save(win, Path.Combine(outDir, $"{key}.png"));
@@ -99,6 +101,21 @@ public static class SelfTest
             _line.Clear();
         }
     }
+
+    private static TGuard.Core.Online.ChatState SampleChat() => new()
+    {
+        Online = true,
+        Active = true,
+        Status = "open",
+        Agent = "Luís",
+        Messages = new()
+        {
+            new() { Id = 1, Body = Loc.Pick("O PC está muito lento desde ontem e aparecem janelas estranhas no browser.", "The PC has been very slow since yesterday and strange windows pop up in the browser."), CreatedAt = DateTimeOffset.Now.AddMinutes(-6) },
+            new() { Id = 2, FromAdmin = true, AdminName = "Luís", Body = Loc.Pick("Olá! Vamos ver isso. Podes carregar em \"Pedir assistência remota\"?", "Hi! Let's take a look. Can you press \"Ask for remote assistance\"?"), CreatedAt = DateTimeOffset.Now.AddMinutes(-5) },
+            new() { Id = 3, Body = Loc.Pick("Pedido de assistência remota", "Remote assistance request"), CreatedAt = DateTimeOffset.Now.AddMinutes(-4) },
+            new() { Id = 4, FromAdmin = true, AdminName = "Luís", Body = Loc.Pick("Abre a Assistência Rápida e escreve o código 482 913.", "Open Quick Assist and type the code 482 913."), CreatedAt = DateTimeOffset.Now.AddMinutes(-3) },
+        },
+    };
 
     private static void Save(Window win, string path)
     {

@@ -58,6 +58,12 @@ public partial class ChatView : UserControl, IRefreshable
         finally { _busy = false; }
     }
 
+    internal void Preview(ChatState state)
+    {
+        _timer.Stop();
+        Apply(state);
+    }
+
     private void Apply(ChatState state)
     {
         if (!_prefilled)
