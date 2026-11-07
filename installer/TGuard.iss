@@ -128,7 +128,6 @@ begin
   end;
 end;
 
-// upgrades: stop the service and the app so their files can be replaced
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
   ResultCode: Integer;

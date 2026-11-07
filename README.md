@@ -1,56 +1,89 @@
 # TGuard
 
-A free, open-source antivirus for Windows, built in Portugal.
+A free, open-source antivirus for Windows, made in Portugal.
 
-TGuard runs alongside Microsoft Defender as a second layer. It focuses on the stuff that
-actually catches people out: fake invoices and delivery notices, phishing pages, malicious
-email attachments, Office macros, script droppers, infected USB sticks and ransomware.
+TGuard runs alongside Microsoft Defender as a second layer. It is tuned for the things that
+actually catch people out here: fake invoices and delivery notices, MB WAY and bank phishing,
+malicious email attachments, Office macros, script droppers, infected USB sticks and ransomware.
 
 > TGuard is still young. Keep Microsoft Defender turned on.
 
-## What it does
+## Features
 
 **Real-time protection.** A Windows service watches Downloads, Desktop, Documents and the temp
-folders for every user on the PC, plus any USB drive while it's plugged in. New files are
-scanned as soon as they finish writing, and anything malicious is moved to an encrypted
-quarantine.
+folder of every user on the PC, plus any USB drive while it is plugged in. New files are scanned
+as soon as they finish writing. Files that are locked while being written are retried until they
+can be read. Anything malicious goes to an encrypted quarantine.
 
-**Execution blocking.** Every process that starts is checked: the executable, its command
-line (Base64-encoded PowerShell is decoded first) and any script it was told to run.
-If it's malicious the process is terminated and the file quarantined.
+**Execution blocking.** Every new process is checked: the executable, its command line
+(Base64-encoded PowerShell is decoded first) and the script it was asked to run. A malicious
+process is terminated and its file quarantined.
+
+**Anti-ransomware.** Hidden decoy files are placed in Documents, Desktop, Pictures, Videos and
+Music. If a program changes or renames a decoy, or renames lots of files to new extensions within seconds,
+TGuard stops the process responsible and quarantines it. System files under `C:\Windows` are
+never quarantined.
+
+**Email protection.** IMAP accounts (Gmail and Yahoo with an app password, SAPO, iCloud, or any
+other IMAP server) are checked every 3 minutes for malicious attachments, phishing links and
+spoofed senders. Dangerous messages can be moved to a `TGuard Quarentena` folder. Passwords are
+stored encrypted with Windows DPAPI. Microsoft no longer allows IMAP with a password on
+Outlook.com and Hotmail, so for those accounts TGuard scans the attachments opened in desktop
+Outlook instead.
+
+**Web protection.** A browser extension for Chrome and Edge blocks phishing pages and fake
+copies of Portuguese services (CGD, Millennium, MB WAY, CTT, Finanças, EDP and others). It uses
+the same signed lists as the desktop app. Install it from Settings > Web protection, or unzip
+`TGuard-Web` from Releases and load the folder as an unpacked extension.
 
 **USB drives.** Removable drives are scanned when plugged in, including `autorun.inf` tricks.
 
+**PC security check.** Defender, firewall, Windows Update, UAC, SMBv1, Remote Desktop, BitLocker,
+Wi-Fi security and suspicious startup entries.
+
 **Scanning engine.** Written from scratch, no third-party AV engine:
 
-- SHA-256 signatures, updated from MalwareBazaar
-- YARA-style rules in plain JSON — see [`default.rules.json`](src/TGuard.Core/Resources/default.rules.json)
+- SHA-256 signatures from MalwareBazaar plus the lists maintained on luis-tavares.pt
+- YARA-style rules in plain JSON, see [`default.rules.json`](src/TGuard.Core/Resources/default.rules.json)
 - file type detection by content, so a `.pdf` that is really an `.exe` gets caught
 - a PE parser for Windows executables (packers, W+X sections, injection imports)
 - Office macros, including decompressing the VBA source (MS-OVBA)
-- PDF, HTML, JavaScript/VBScript, `.lnk` shortcuts, nested ZIPs and password-protected ZIPs
-- Authenticode verification, so signed software from known vendors doesn't get flagged
-- Mark-of-the-Web: where a file was downloaded from is part of the verdict
-- phishing link analysis tuned for Portuguese banks and services (CGD, Millennium, MB WAY, CTT, Finanças…)
+- PDF, RTF, HTML, JavaScript/VBScript, `.lnk` shortcuts, nested ZIPs and password-protected ZIPs
+- Authenticode verification, so signed software from known vendors isn't flagged
+- Mark-of-the-Web, so where a file came from is part of the verdict
+- phishing link analysis for Portuguese banks and services, including look-alike domains and homoglyphs
+- an allow list for confirmed false positives
 
 Every file gets a score from 0 to 100. 40 and up is suspicious, 80 and up is malicious.
 
-**PC security check.** Defender status, firewall, Windows Update, UAC, SMBv1, Remote Desktop,
-BitLocker, Wi-Fi security and suspicious startup entries.
+**Updates.** Signatures, URL lists and new versions of TGuard are checked every 3 hours and
+installed silently. Everything is signed in GitHub Actions with ECDSA keys and verified on the PC,
+so the web server can't push anything by itself. See [`server/`](server/README.md).
 
-**Updates.** Signatures, malicious URL lists and new versions of TGuard itself come from
-[tguard.luis-tavares.pt](https://tguard.luis-tavares.pt) every 6 hours and install silently.
-Everything is signed in GitHub Actions and verified on the PC, so the web server can't push
-anything by itself — see [`server/`](server/README.md).
-
-Still to come: email protection (Gmail, Outlook, IMAP), anti-ransomware decoy files,
-a browser extension and an installer.
+**Account (optional).** A PC can be linked to a [luis-tavares.pt](https://luis-tavares.pt)
+account. The client area then shows the protection status of each PC and the threats it found,
+and can ask the PC to run a scan or an update. From the app you can also report a scam or a false
+positive and open a support ticket.
 
 ## Installing
 
-Grab `TGuard-Setup-x.y.z.exe` from [Releases](https://github.com/Tavaress21/tguard/releases) and run it.
-Setup installs the .NET 8 Desktop Runtime if it's missing. The installer isn't code-signed yet,
-so SmartScreen will ask for confirmation ("More info" → "Run anyway").
+Download `TGuard-Setup-x.y.z.exe` from [Releases](https://github.com/Tavaress21/tguard/releases)
+or from [luis-tavares.pt/projetos/tguard](https://luis-tavares.pt/projetos/tguard) and run it.
+Setup installs the .NET 8 Desktop Runtime if it is missing. The installer isn't code-signed yet,
+so SmartScreen asks for confirmation ("More info", then "Run anyway").
+
+## Privacy
+
+Files and emails are always scanned on the PC. They are never uploaded.
+
+| What | When | Sent |
+| --- | --- | --- |
+| Usage statistics | on by default, once a day | random install ID, TGuard and Windows version, number of signatures, which protections are on, quarantine and threat counts, date of the last scan and update |
+| Threat sharing | off by default | detection name, where it was found (file, email, web...), score and date of each threat |
+| Linked account | only after you link the PC | the above every 5 minutes, plus the file name (or the email subject and sender) and the action taken |
+
+Each of these can be turned off in Settings. Unlinking the PC, from the app or from the client
+area, stops the account data straight away.
 
 ## Building
 
@@ -58,39 +91,40 @@ You need the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0).
 
 ```powershell
 dotnet build TGuard.sln -c Release
-dotnet run --project tests/TGuard.Tests
+dotnet run --project tests/TGuard.Tests -c Release
+node tests/browser/extension.test.mjs
 dotnet run --project src/TGuard.Cli -- scan C:\Users\me\Downloads
 dotnet run --project src/TGuard.Cli -- check
 ```
 
-Every push is built and tested on Windows by GitHub Actions. The integration tests start the
-service, drop harmless test samples and check that they get caught, quarantined or killed.
-The installer is built with [Inno Setup](https://jrsoftware.org/isinfo.php) from `installer/TGuard.iss`
-and is also installed and uninstalled on the CI machine as part of the tests.
+Every push is built and tested on Windows by GitHub Actions. The integration tests install the
+service, drop harmless samples and check that they are caught, quarantined or killed, simulate
+ransomware against the decoys, run an update end to end against a local server, and install and
+uninstall the setup. The installer is built with [Inno Setup](https://jrsoftware.org/isinfo.php)
+from `installer/TGuard.iss`.
 
 ## Layout
 
 ```
-src/TGuard.Core      scanning engine (no external dependencies)
-src/TGuard.Service   Windows service: real-time, execution blocking, USB, updates
+src/TGuard.Core      scanning engine, email client, update and site clients
+src/TGuard.Service   Windows service: real-time, processes, USB, ransomware, email, updates
 src/TGuard.App       desktop app (WPF), Portuguese and English
-src/TGuard.Cli       command line
-tests/TGuard.Tests   engine tests
+src/TGuard.Cli       command line, also used by CI to sign updates
+browser/             web protection extension (Manifest V3)
+installer/           Inno Setup script and release notes
+server/              update mirror for cPanel
+tests/               engine tests and extension tests
 ```
-
-## Privacy
-
-Everything is scanned locally. Nothing leaves your PC unless you turn on anonymous threat
-sharing (off by default), and even then only hashes and URLs are sent, never your files.
 
 ## Contributing
 
-New detection rules are very welcome. A rule is a few lines of JSON; open a pull request
-with a short description and, if you can, a SHA-256 of a sample it catches.
+New detection rules are welcome. A rule is a few lines of JSON: open a pull request with a short
+description and, if you can, the SHA-256 of a sample it catches. Scams and false positives can
+also be reported at [luis-tavares.pt/tguard/denunciar](https://luis-tavares.pt/tguard/denunciar).
 
 ## License
 
-[MIT](LICENSE) © Luís Tavares — [luis-tavares.pt](https://luis-tavares.pt)
+[MIT](LICENSE) © Luís Tavares, [luis-tavares.pt](https://luis-tavares.pt)
 
 Fonts: [Bagel Fat One](https://fonts.google.com/specimen/Bagel+Fat+One) and
 [Outfit](https://fonts.google.com/specimen/Outfit), SIL Open Font License.

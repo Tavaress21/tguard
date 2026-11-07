@@ -1,21 +1,71 @@
 <?php
 
-$source  = 'https://raw.githubusercontent.com/Tavaress21/tguard/updates/';
-$target  = getenv('TGUARD_UPDATES_DIR') ?: __DIR__ . '/../public_html/tguard/updates';
-$files   = ['feeds.json', 'feeds.json.sig', 'signatures.txt', 'urls.txt', 'rules.json', 'allow.txt', 'app.json', 'app.json.sig'];
+$source = 'https://raw.githubusercontent.com/Tavaress21/tguard/updates/';
+$target = getenv('TGUARD_UPDATES_DIR') ?: __DIR__ . '/../tguard.luis-tavares.pt/updates';
 
-function fetch($url) {
-    $ctx = stream_context_create(['http' => ['timeout' => 120, 'user_agent' => 'TGuard-sync', 'ignore_errors' => true]]);
-    $data = @file_get_contents($url, false, $ctx);
-    if ($data === false) return null;
-    if (isset($http_response_header[0]) && strpos($http_response_header[0], '200') === false) return null;
-    return $data;
+function context()
+{
+    return stream_context_create(['http' => ['timeout' => 120, 'user_agent' => 'TGuard-sync', 'ignore_errors' => true]]);
 }
 
-function put($path, $data) {
+function ok($headers)
+{
+    return isset($headers[0]) && preg_match('{^HTTP/\S+\s+200\b}', $headers[0]);
+}
+
+function fetch($url)
+{
+    $data = @file_get_contents($url, false, context());
+    $headers = function_exists('http_get_last_response_headers') ? http_get_last_response_headers() : ($http_response_header ?? []);
+    return $data !== false && ok($headers) ? $data : null;
+}
+
+function download($url, $path, $sha256)
+{
+    $in = @fopen($url, 'rb', false, context());
+    if ($in === false) {
+        return false;
+    }
+    $headers = function_exists('http_get_last_response_headers') ? http_get_last_response_headers() : ($http_response_header ?? []);
     $tmp = $path . '.tmp';
-    if (file_put_contents($tmp, $data) === false) return false;
+    $out = ok($headers) ? fopen($tmp, 'wb') : false;
+    $copied = $out !== false && stream_copy_to_stream($in, $out) !== false;
+    fclose($in);
+    if ($out !== false) {
+        fclose($out);
+    }
+    if (!$copied || hash_file('sha256', $tmp) !== $sha256) {
+        @unlink($tmp);
+        return false;
+    }
     return rename($tmp, $path);
+}
+
+function matches($path, $sha256)
+{
+    return is_file($path) && hash_file('sha256', $path) === $sha256;
+}
+
+function put($path, $data)
+{
+    if (matches($path, hash('sha256', $data))) {
+        return 0;
+    }
+    $tmp = $path . '.tmp';
+    if (file_put_contents($tmp, $data) === false || !rename($tmp, $path)) {
+        @unlink($tmp);
+        return 0;
+    }
+    return 1;
+}
+
+function signed($name)
+{
+    global $source;
+    $data = fetch($source . $name);
+    $signature = $data === null ? null : fetch($source . $name . '.sig');
+    $json = $signature === null ? null : json_decode($data, true);
+    return is_array($json) ? [$data, $signature, $json] : null;
 }
 
 if (!is_dir($target) && !mkdir($target, 0755, true)) {
@@ -24,28 +74,64 @@ if (!is_dir($target) && !mkdir($target, 0755, true)) {
 }
 
 $changed = 0;
-foreach ($files as $name) {
-    $data = fetch($source . $name);
-    if ($data === null) continue;
-    $path = "$target/$name";
-    if (is_file($path) && hash_file('sha256', $path) === hash('sha256', $data)) continue;
-    put($path, $data);
-    $changed++;
+$errors = [];
+
+if ($feeds = signed('feeds.json')) {
+    [$data, $signature, $manifest] = $feeds;
+    $complete = true;
+    foreach (['signatures', 'urls', 'rules', 'allow'] as $key) {
+        $entry = $manifest[$key] ?? null;
+        if (!is_array($entry)) {
+            continue;
+        }
+        $name = (string) ($entry['name'] ?? '');
+        $sha256 = strtolower((string) ($entry['sha256'] ?? ''));
+        if (!preg_match('/^[a-z]+\.(txt|json)$/', $name) || !preg_match('/^[a-f0-9]{64}$/', $sha256)) {
+            $complete = false;
+            break;
+        }
+        if (matches("$target/$name", $sha256)) {
+            continue;
+        }
+        if (!download($source . $name, "$target/$name", $sha256)) {
+            $errors[] = $name;
+            $complete = false;
+            break;
+        }
+        $changed++;
+    }
+    if ($complete) {
+        $changed += put("$target/feeds.json", $data);
+        $changed += put("$target/feeds.json.sig", $signature);
+    }
+} else {
+    $errors[] = 'feeds.json';
 }
 
-$app = is_file("$target/app.json") ? json_decode(file_get_contents("$target/app.json"), true) : null;
-if ($app && isset($app['file']) && preg_match('/^TGuard-Setup-[0-9.]+\.exe$/', $app['file'])) {
-    $exe = "$target/{$app['file']}";
-    if (!is_file($exe) || hash_file('sha256', $exe) !== strtolower($app['sha256'])) {
-        $data = fetch($source . $app['file']);
-        if ($data !== null && hash('sha256', $data) === strtolower($app['sha256'])) {
-            put($exe, $data);
+if ($app = signed('app.json')) {
+    [$data, $signature, $release] = $app;
+    $file = (string) ($release['file'] ?? '');
+    $sha256 = strtolower((string) ($release['sha256'] ?? ''));
+    if (preg_match('/^TGuard-Setup-[0-9.]+\.exe$/', $file) && preg_match('/^[a-f0-9]{64}$/', $sha256)) {
+        $ready = matches("$target/$file", $sha256);
+        if (!$ready && download($source . $file, "$target/$file", $sha256)) {
+            $ready = true;
             $changed++;
         }
+        if ($ready) {
+            $changed += put("$target/app.json", $data);
+            $changed += put("$target/app.json.sig", $signature);
+            foreach (glob("$target/TGuard-Setup-*.exe") ?: [] as $old) {
+                if (basename($old) !== $file) {
+                    unlink($old);
+                }
+            }
+        } else {
+            $errors[] = $file;
+        }
     }
-    foreach (glob("$target/TGuard-Setup-*.exe") as $old) {
-        if (basename($old) !== $app['file']) unlink($old);
-    }
+} else {
+    $errors[] = 'app.json';
 }
 
-echo date('c') . " sync done, $changed file(s) updated\n";
+echo date('c') . " sync done, $changed file(s) updated" . ($errors ? ', failed: ' . implode(', ', $errors) : '') . "\n";
