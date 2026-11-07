@@ -1,6 +1,6 @@
 What's new in 0.5.1
 
-- Far fewer false positives. A sweep of almost 300,000 clean files (Windows, Program Files and
+- Far fewer false positives. A sweep of more than 600,000 clean files (Windows, Program Files and
   popular installers such as Chrome, Firefox, Zoom, Steam, Autenticação.gov and Visual Studio)
   now runs every week in CI. This release fixes everything it found:
   - text files such as C/C++ headers, libraries, logs and documentation are no longer treated

@@ -54,7 +54,7 @@ Wi-Fi security and suspicious startup entries.
 - phishing link analysis for Portuguese banks and services, including look-alike domains and homoglyphs
 - an allow list for confirmed false positives, and stronger evidence required for software
   installed in Program Files or Windows
-- a weekly CI sweep of about 300,000 clean files to catch false positives before a release
+- a weekly CI sweep of more than 600,000 clean files to catch false positives before a release
 
 Every file gets a score from 0 to 100. 40 and up is suspicious, 80 and up is malicious.
 
