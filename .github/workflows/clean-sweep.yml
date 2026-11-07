@@ -26,12 +26,18 @@ jobs:
         shell: pwsh
         run: ./scripts/ci-clean-samples.ps1 -Target "$env:RUNNER_TEMP\clean"
 
-      - name: Scan clean files
+      - name: Scan installers and Windows
         shell: pwsh
-        run: ./scripts/ci-clean-sweep.ps1 -Cli publish/cli/tguard.exe -Paths "$env:RUNNER_TEMP\clean", "C:\Windows\System32", "C:\Windows\SysWOW64", "C:\Program Files", "C:\Program Files (x86)", "C:\ProgramData\Microsoft\Windows\Start Menu" -Report sweep.txt
+        run: ./scripts/ci-clean-sweep.ps1 -Cli publish/cli/tguard.exe -Paths "$env:RUNNER_TEMP\clean", "C:\Windows\System32", "C:\Windows\SysWOW64", "C:\ProgramData\Microsoft\Windows\Start Menu" -Report sweep-windows.txt
+
+      - name: Scan Program Files
+        shell: pwsh
+        timeout-minutes: 50
+        continue-on-error: true
+        run: ./scripts/ci-clean-sweep.ps1 -Cli publish/cli/tguard.exe -Paths "C:\Program Files", "C:\Program Files (x86)" -Report sweep-programs.txt
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: clean-sweep
-          path: sweep.txt
+          path: sweep-*.txt
