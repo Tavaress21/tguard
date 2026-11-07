@@ -4,7 +4,7 @@ using TGuard.Core.Storage;
 
 namespace TGuard.Service;
 
-public sealed class RealtimeProtection : BackgroundService
+public sealed class RealtimeProtection : ResilientService
 {
     private static readonly string[] IgnoreSuffix = { ".crdownload", ".part", ".tmp", ".partial", ".download", ".!ut", ".tgq", ".opdownload" };
 
@@ -31,13 +31,14 @@ public sealed class RealtimeProtection : BackgroundService
     public event Action<string, WatcherChangeTypes, string?>? FileChanged;
 
     public RealtimeProtection(ServiceState state, ILogger<RealtimeProtection> log)
+        : base(log)
     {
         _state = state;
         _log = log;
         _state.SettingsChanged += Rebuild;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken ct)
+    protected override async Task LoopAsync(CancellationToken ct)
     {
         Rebuild();
         var nextRefresh = DateTime.UtcNow.AddMinutes(10);

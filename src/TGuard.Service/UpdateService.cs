@@ -6,7 +6,7 @@ using TGuard.Core.Storage;
 
 namespace TGuard.Service;
 
-public sealed class UpdateService : BackgroundService
+public sealed class UpdateService : ResilientService
 {
     private static readonly TimeSpan Interval = TimeSpan.FromHours(3);
 
@@ -18,13 +18,14 @@ public sealed class UpdateService : BackgroundService
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     public UpdateService(ServiceState state, Notifier notifier, ILogger<UpdateService> log)
+        : base(log)
     {
         _state = state;
         _notifier = notifier;
         _log = log;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken ct)
+    protected override async Task LoopAsync(CancellationToken ct)
     {
         try { await Task.Delay(TimeSpan.FromMinutes(2), ct); } catch (OperationCanceledException) { return; }
         while (!ct.IsCancellationRequested)

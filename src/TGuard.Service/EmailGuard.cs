@@ -9,7 +9,7 @@ using TGuard.Core.Storage;
 
 namespace TGuard.Service;
 
-public sealed class EmailGuard : BackgroundService
+public sealed class EmailGuard : ResilientService
 {
     private const string QuarantineFolder = "TGuard Quarentena";
     private const int MaxMessageBytes = 30 * 1024 * 1024;
@@ -26,6 +26,7 @@ public sealed class EmailGuard : BackgroundService
     private readonly SemaphoreSlim _wake = new(0);
 
     public EmailGuard(ServiceState state, Notifier notifier, ILogger<EmailGuard> log)
+        : base(log)
     {
         _state = state;
         _notifier = notifier;
@@ -38,7 +39,7 @@ public sealed class EmailGuard : BackgroundService
 
     public void CheckNow() => _wake.Release();
 
-    protected override async Task ExecuteAsync(CancellationToken ct)
+    protected override async Task LoopAsync(CancellationToken ct)
     {
         try { await Task.Delay(TimeSpan.FromSeconds(45), ct); } catch (OperationCanceledException) { return; }
         while (!ct.IsCancellationRequested)

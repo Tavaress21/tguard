@@ -426,14 +426,14 @@ internal static class UpdateTests
         var site = "https://site.example/";
         var http = new FakeHttp(new()
         {
-            [site + "api/tguard/ping"] = "{\"ok\":true,\"account\":false}",
+            [site + "api/tguard/sync"] = "{\"ok\":true,\"account\":false,\"commands\":[]}",
             [site + "api/tguard/ligar"] = "{\"ok\":true,\"code\":\"ABCD-EFGH\",\"secret\":\"s3cret\",\"url\":\"https://site.example/tguard/ligar?codigo=ABCD-EFGH\",\"expires_in\":900}",
             [site + "api/tguard/ligar/estado"] = "{\"ok\":true,\"linked\":true,\"token\":\"tok\",\"account\":{\"name\":\"Ana\",\"email\":\"an••@x.pt\"}}",
             [site + "api/tguard/denuncia"] = "{\"ok\":true,\"id\":42}",
         });
         var settings = new TGuardSettings { SiteUrl = site };
         var c = new SiteClient(settings, http);
-        Assert.True(c.PingAsync(Guid.NewGuid().ToString(), "old", 10).GetAwaiter().GetResult().AccountRevoked, "revoked account not detected");
+        Assert.True(c.SyncAsync(new SyncRequest { InstallId = Guid.NewGuid().ToString(), Token = "old" }).GetAwaiter().GetResult().AccountRevoked, "revoked account not detected");
         var start = c.StartLinkAsync(Guid.NewGuid().ToString()).GetAwaiter().GetResult();
         Assert.Equal("ABCD-EFGH", start.Code);
         Assert.Equal(900, start.ExpiresIn);

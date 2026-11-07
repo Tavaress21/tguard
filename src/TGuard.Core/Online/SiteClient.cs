@@ -15,16 +15,24 @@ public sealed class SiteClient
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
+    private static readonly Lazy<HttpClient> Shared = new(() =>
+        CreateClient(new SocketsHttpHandler { PooledConnectionLifetime = TimeSpan.FromMinutes(10) }));
+
     private readonly HttpClient _http;
     private readonly Uri _base;
 
     public SiteClient(TGuardSettings settings, HttpMessageHandler? handler = null)
     {
         _base = Updater.UpdateBase(settings.SiteUrl);
-        _http = handler is null ? new HttpClient() : new HttpClient(handler);
-        _http.Timeout = TimeSpan.FromSeconds(30);
-        _http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        _http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("TGuard", Version));
+        _http = handler is null ? Shared.Value : CreateClient(handler);
+    }
+
+    private static HttpClient CreateClient(HttpMessageHandler handler)
+    {
+        var http = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(30) };
+        http.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        http.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("TGuard", Version));
+        return http;
     }
 
     public static string Version => typeof(SiteClient).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
@@ -39,21 +47,6 @@ public sealed class SiteClient
         }
     }
 
-    public async Task<PingResult> PingAsync(string installId, string? token, int signatures, CancellationToken ct = default)
-    {
-        using var resp = await PostAsync("api/tguard/ping",
-            new { InstallId = installId, Version, Os, Signatures = signatures, Token = token }, ct);
-        resp.EnsureSuccessStatusCode();
-        using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct));
-        var result = new PingResult();
-        if (doc.RootElement.TryGetProperty("account", out var acc))
-        {
-            if (acc.ValueKind == JsonValueKind.False) result.AccountRevoked = true;
-            else if (acc.ValueKind == JsonValueKind.Object && acc.TryGetProperty("name", out var n)) result.AccountName = n.GetString();
-        }
-        return result;
-    }
-
     public async Task<SyncResponse> SyncAsync(SyncRequest request, CancellationToken ct = default)
     {
         using var resp = await PostAsync("api/tguard/sync", request, ct);
@@ -61,10 +54,10 @@ public sealed class SiteClient
         using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync(ct));
         var root = doc.RootElement;
         var result = new SyncResponse();
-        if (root.TryGetProperty("account", out var acc))
+        if (root.TryGetProperty("account", out var account))
         {
-            if (acc.ValueKind == JsonValueKind.False) result.AccountRevoked = true;
-            else if (acc.ValueKind == JsonValueKind.Object && acc.TryGetProperty("name", out var n)) result.AccountName = n.GetString();
+            if (account.ValueKind == JsonValueKind.False) result.AccountRevoked = true;
+            else if (account.ValueKind == JsonValueKind.Object && account.TryGetProperty("name", out var name)) result.AccountName = name.GetString();
         }
         if (root.TryGetProperty("commands", out var cmds) && cmds.ValueKind == JsonValueKind.Array)
             foreach (var c in cmds.EnumerateArray())
@@ -130,111 +123,4 @@ public sealed class SiteClient
         _http.PostAsJsonAsync(new Uri(_base, path), body, Json, ct);
 
     private static string? Trim(string? s, int max) => s is null ? null : s.Length <= max ? s : s[..max];
-}
-
-public sealed class SyncRequest
-{
-    public string InstallId { get; set; } = "";
-    public string? Token { get; set; }
-    public string Version { get; set; } = SiteClient.Version;
-    public string Os { get; set; } = SiteClient.Os;
-    public int Signatures { get; set; }
-    public DeviceStatus Status { get; set; } = new();
-    public List<SyncEvent> Events { get; set; } = new();
-    public List<CommandResult> Results { get; set; } = new();
-}
-
-public sealed class DeviceStatus
-{
-    public bool Realtime { get; set; }
-    public bool ProcessGuard { get; set; }
-    public bool Usb { get; set; }
-    public bool Ransomware { get; set; }
-    public bool Email { get; set; }
-    public int EmailAccounts { get; set; }
-    public int Quarantine { get; set; }
-    public int Threats30d { get; set; }
-    public DateTimeOffset? LastScan { get; set; }
-    public string? LastScanType { get; set; }
-    public DateTimeOffset? LastUpdate { get; set; }
-    public int Rules { get; set; }
-    public int BadUrls { get; set; }
-    public bool ScanRunning { get; set; }
-    public int ScanFiles { get; set; }
-}
-
-public sealed class SyncEvent
-{
-    public DateTimeOffset Date { get; set; }
-    public string Source { get; set; } = "";
-    public string Verdict { get; set; } = "";
-    public string Name { get; set; } = "";
-    public int Score { get; set; }
-    public string? File { get; set; }
-    public string? Action { get; set; }
-}
-
-public sealed class CommandResult
-{
-    public long Id { get; set; }
-    public bool Ok { get; set; }
-    public string Message { get; set; } = "";
-}
-
-public sealed class RemoteCommand
-{
-    public long Id { get; set; }
-    public string Type { get; set; } = "";
-}
-
-public sealed class SyncResponse
-{
-    public string? AccountName { get; set; }
-    public bool AccountRevoked { get; set; }
-    public List<RemoteCommand> Commands { get; } = new();
-}
-
-public sealed class PingResult
-{
-    public string? AccountName { get; set; }
-    public bool AccountRevoked { get; set; }
-}
-
-public sealed class LinkStart
-{
-    public string Code { get; set; } = "";
-    public string Secret { get; set; } = "";
-    public string Url { get; set; } = "";
-    public int ExpiresIn { get; set; }
-}
-
-public sealed class LinkPoll
-{
-    public bool Linked { get; set; }
-    public bool Expired { get; set; }
-    public string? Token { get; set; }
-    public LinkAccount? Account { get; set; }
-}
-
-public sealed class LinkAccount
-{
-    public string? Name { get; set; }
-    public string? Email { get; set; }
-}
-
-public sealed class ReportRequest
-{
-    public string Type { get; set; } = "false_positive";
-    public string? Value { get; set; }
-    public string? FileName { get; set; }
-    public string? Detection { get; set; }
-    public string? Details { get; set; }
-}
-
-public sealed class AccountStatus
-{
-    public bool Linked { get; set; }
-    public string? Name { get; set; }
-    public string? Email { get; set; }
-    public bool UsageStats { get; set; }
 }

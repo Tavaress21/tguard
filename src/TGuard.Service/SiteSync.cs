@@ -5,7 +5,7 @@ using TGuard.Core.Storage;
 
 namespace TGuard.Service;
 
-public sealed class SiteSync : BackgroundService
+public sealed class SiteSync : ResilientService
 {
     private static readonly TimeSpan LinkedInterval = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan AnonymousInterval = TimeSpan.FromHours(20);
@@ -25,6 +25,7 @@ public sealed class SiteSync : BackgroundService
 
     public SiteSync(ServiceState state, ScanManager scans, UpdateService updates, RealtimeProtection realtime, ProcessGuard processGuard,
                     UsbGuard usb, RansomwareGuard ransomware, EmailGuard email, ILogger<SiteSync> log)
+        : base(log)
     {
         _state = state;
         _scans = scans;
@@ -39,7 +40,7 @@ public sealed class SiteSync : BackgroundService
 
     public void SyncSoon() => _wake.Release();
 
-    protected override async Task ExecuteAsync(CancellationToken ct)
+    protected override async Task LoopAsync(CancellationToken ct)
     {
         try { await Task.Delay(TimeSpan.FromSeconds(90), ct); } catch (OperationCanceledException) { return; }
         while (!ct.IsCancellationRequested)
@@ -104,7 +105,7 @@ public sealed class SiteSync : BackgroundService
             st.Save();
             foreach (var command in response.Commands) _ = Task.Run(() => RunAsync(command, ct), ct);
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or UriFormatException or InvalidOperationException)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or UriFormatException or InvalidOperationException or IOException)
         {
             _log.LogInformation("Site sync failed: {Error}", ex.Message);
         }

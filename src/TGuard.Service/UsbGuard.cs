@@ -4,7 +4,7 @@ using TGuard.Core.Ipc;
 
 namespace TGuard.Service;
 
-public sealed class UsbGuard : BackgroundService
+public sealed class UsbGuard : ResilientService
 {
     private const int MaxFilesPerDrive = 50_000;
 
@@ -15,6 +15,7 @@ public sealed class UsbGuard : BackgroundService
     private readonly HashSet<string> _known = new(StringComparer.OrdinalIgnoreCase);
 
     public UsbGuard(ServiceState state, RealtimeProtection realtime, Notifier notifier, ILogger<UsbGuard> log)
+        : base(log)
     {
         _state = state;
         _realtime = realtime;
@@ -24,7 +25,7 @@ public sealed class UsbGuard : BackgroundService
 
     public bool Active => _state.Settings.UsbScanEnabled;
 
-    protected override async Task ExecuteAsync(CancellationToken ct)
+    protected override async Task LoopAsync(CancellationToken ct)
     {
         foreach (var d in RemovableDrives()) { _known.Add(d); _realtime.AddDrive(d); }
 

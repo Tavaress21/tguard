@@ -9,7 +9,7 @@ using TGuard.Core.Storage;
 
 namespace TGuard.Service;
 
-public sealed class RansomwareGuard : BackgroundService
+public sealed class RansomwareGuard : ResilientService
 {
     private static readonly string[] ProtectedFolders =
         { "%USERPROFILE%\\Documents", "%USERPROFILE%\\Desktop", "%USERPROFILE%\\Pictures", "%USERPROFILE%\\Videos", "%USERPROFILE%\\Music" };
@@ -33,6 +33,7 @@ public sealed class RansomwareGuard : BackgroundService
     public int ProtectedFolderCount => _folders.Count;
 
     public RansomwareGuard(ServiceState state, Notifier notifier, ILogger<RansomwareGuard> log)
+        : base(log)
     {
         _state = state;
         _notifier = notifier;
@@ -40,7 +41,7 @@ public sealed class RansomwareGuard : BackgroundService
         _state.SettingsChanged += Rebuild;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken ct)
+    protected override async Task LoopAsync(CancellationToken ct)
     {
         Rebuild();
         while (!ct.IsCancellationRequested)
