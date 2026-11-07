@@ -7,8 +7,10 @@ $current = $null
 function Flush {
     if ($null -eq $script:current) { return }
     $script:hits.Add($script:current)
-    Add-Content $Report ("{0,-10} {1,3}  {2}" -f $script:current.Verdict, $script:current.Score, $script:current.File) -Encoding utf8
-    foreach ($r in $script:current.Reasons) { Add-Content $Report "               - $r" -Encoding utf8 }
+    $line = "{0,-10} {1,3}  {2}" -f $script:current.Verdict, $script:current.Score, $script:current.File
+    Write-Host $line
+    Add-Content $Report $line -Encoding utf8
+    foreach ($r in $script:current.Reasons) { Write-Host "               - $r"; Add-Content $Report "               - $r" -Encoding utf8 }
     $script:current = $null
 }
 
@@ -33,3 +35,4 @@ Write-Host ""
 Write-Host "Detections on clean files: $($hits.Count)"
 $hits | Group-Object { if ($_.Reasons.Count) { $_.Reasons[0] -replace '\d+', 'N' } else { '-' } } | Sort-Object Count -Descending |
     ForEach-Object { Write-Host ("{0,6}  {1}" -f $_.Count, $_.Name) }
+exit 0
