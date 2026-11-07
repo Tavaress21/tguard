@@ -364,6 +364,24 @@ internal static class UpdateTests
         Assert.True(new UrlBlocklist(TGuardPaths.UrlBlocklist).Contains("http://mal.example/a.exe"), "not persisted");
     }
 
+    [Test] static void PublisherReadsMalwareBazaarCsv()
+    {
+        var h = new string('e', 64);
+        var csv = "################################################################\n" +
+            "# \"first_seen_utc\",\"sha256_hash\",\"md5_hash\",\"sha1_hash\",\"reporter\",\"file_name\",\"file_type_guess\",\"mime_type\",\"signature\",\"clamav\",\"vtpercent\",\"imphash\",\"ssdeep\",\"tlsh\"\n" +
+            "\"2026-11-07 10:00:00\", \"" + h + "\", \"" + new string('1', 32) + "\", \"" + new string('2', 40) + "\", \"anon\", \"fatura, novembro.exe\", \"exe\", \"application/x-dosexec\", \"Formbook\", \"n/a\", \"n/a\", \"n/a\", \"n/a\", \"n/a\"\n";
+        var http = new FakeHttp(new()
+        {
+            [string.Format(Updater.MalwareBazaarRecent, "KEY123")] = csv,
+            [Updater.UrlhausRecent] = "{\"query_status\":\"ok\",\"urls\":[]}",
+        });
+        var dir = Path.Combine(TGuardPaths.Root, "server-bazaar");
+        var m = Publisher.BuildFeedsAsync(dir, Key("test-feeds.key.pem"), "KEY123", Array.Empty<string>(), Array.Empty<string>(), null, null, http)
+            .GetAwaiter().GetResult();
+        var lines = File.ReadAllLines(Path.Combine(dir, m.Signatures!.Name)).Where(l => l.Length > 0 && l[0] != '#').ToList();
+        Assert.True(lines.Contains($"{h};MalwareBazaar.Formbook"), "MalwareBazaar csv not parsed: " + string.Join(" | ", lines));
+    }
+
     private static string Key(string name) => File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "keys", name));
 
     private static Dictionary<string, string> Serve(string dir, string baseUrl)

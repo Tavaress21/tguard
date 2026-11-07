@@ -116,7 +116,7 @@ public sealed class Updater
         return await resp.Content.ReadAsByteArrayAsync(ct);
     }
 
-    private async Task<string> GetTextAsync(Uri uri, string? authKey, CancellationToken ct)
+    public async Task<string> GetTextAsync(Uri uri, string? authKey, CancellationToken ct)
     {
         using var req = new HttpRequestMessage(HttpMethod.Get, uri);
         if (authKey is not null) req.Headers.Add("Auth-Key", authKey);
@@ -133,26 +133,28 @@ public sealed class Updater
     }
 
     private static readonly System.Text.RegularExpressions.Regex Sha256Rx = new(@"\b[a-fA-F0-9]{64}\b");
+    private static readonly System.Text.RegularExpressions.Regex CsvSeparator = new(@"""\s*,\s*""");
 
-    public static int AddHashes(ScanEngine engine, string text, string source)
+    public static int AddHashes(ScanEngine engine, string text, string source) =>
+        engine.Signatures.AddRange(ParseHashes(text, source).ToList());
+
+    public static IEnumerable<(string Hash, string Name)> ParseHashes(string text, string source)
     {
-        var items = new List<(string, string)>();
         foreach (var raw in text.Split('\n'))
         {
             var line = raw.Trim();
             if (line.Length < 64 || line[0] == '#') continue;
             var m = Sha256Rx.Match(line);
             if (!m.Success) continue;
-            string name = $"{source}.Malware";
-            if (line.Contains("\",\""))
+            var name = $"{source}.Malware";
+            if (line[0] == '"')
             {
-                var cols = line.Trim('"').Split("\",\"");
+                var cols = CsvSeparator.Split(line.Trim('"'));
                 if (cols.Length > 8 && cols[8].Trim() is { Length: > 0 } sig && sig != "n/a") name = $"{source}.{sig}";
             }
             else if (line.IndexOf(';') is var i and > 0 && i + 1 < line.Length) name = line[(i + 1)..].Trim();
-            items.Add((m.Value, name));
+            yield return (m.Value.ToLowerInvariant(), name);
         }
-        return engine.Signatures.AddRange(items);
     }
 
     public static int AddAllowed(ScanEngine engine, string text) =>

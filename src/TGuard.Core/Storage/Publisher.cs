@@ -44,25 +44,16 @@ public static class Publisher
 
         if (!string.IsNullOrWhiteSpace(abuseChKey))
         {
-            var engine = new Engine.ScanEngine(new TGuardSettings(), new SignatureDatabase(), new Rules.RuleEngine());
             var http = new Updater(handler);
             var key = abuseChKey.Trim();
             try
             {
-                var csv = Encoding.UTF8.GetString(await http.GetBytesAsync(new Uri(string.Format(Updater.MalwareBazaarRecent, Uri.EscapeDataString(key))), ct));
+                var csv = await http.GetTextAsync(new Uri(string.Format(Updater.MalwareBazaarRecent, Uri.EscapeDataString(key))), null, ct);
                 var before = hashes.Count;
-                foreach (var raw in csv.Split('\n'))
-                {
-                    var line = raw.Trim();
-                    if (line.Length < 64 || line[0] == '#' || !line.Contains("\",\"")) continue;
-                    var cols = line.Trim('"').Split("\",\"");
-                    if (cols.Length < 2) continue;
-                    var family = cols.Length > 8 && cols[8] is { Length: > 0 } f && f != "n/a" ? f : "Malware";
-                    AddHash(cols[1], "MalwareBazaar." + family);
-                }
+                foreach (var (hash, name) in Updater.ParseHashes(csv, "MalwareBazaar")) AddHash(hash, name);
                 log($"MalwareBazaar: +{hashes.Count - before}");
             }
-            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException) { log($"MalwareBazaar failed: {ex.Message}"); }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or InvalidDataException) { log($"MalwareBazaar failed: {ex.Message}"); }
             try
             {
                 using var req = new HttpRequestMessage(HttpMethod.Get, Updater.UrlhausRecent);
