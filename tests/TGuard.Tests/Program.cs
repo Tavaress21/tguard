@@ -462,18 +462,37 @@ internal static class UpdateTests
 
         var sync = new FakeHttp(new()
         {
-            [site + "api/tguard/sync"] = "{\"ok\":true,\"account\":{\"name\":\"Ana\"},\"commands\":[{\"id\":7,\"type\":\"scan.quick\"}]}",
+            [site + "api/tguard/sync"] = "{\"ok\":true,\"account\":{\"name\":\"Ana\"},\"commands\":[{\"id\":7,\"type\":\"scan.quick\"},{\"id\":8,\"type\":\"protection.set\",\"args\":{\"module\":\"usb\",\"enabled\":false}}]}",
         });
         var sr = new SiteClient(settings, sync).SyncAsync(new SyncRequest { InstallId = Guid.NewGuid().ToString(), Status = new DeviceStatus { Threats30d = 2 } })
             .GetAwaiter().GetResult();
-        Assert.True(sr.AccountName == "Ana" && sr.Commands.Count == 1 && sr.Commands[0].Id == 7 && sr.Commands[0].Type == "scan.quick", "sync answer not read");
+        Assert.True(sr.AccountName == "Ana" && sr.Commands.Count == 2 && sr.Commands[0].Id == 7 && sr.Commands[0].Type == "scan.quick", "sync answer not read");
+        Assert.True(sr.Commands[1].Args["module"] == "usb" && sr.Commands[1].Args["enabled"] == "false", "command arguments not read");
         var json = System.Text.Json.JsonSerializer.Serialize(new SyncRequest { Status = new DeviceStatus { Threats30d = 2, LastScanType = "quick" } },
             new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web) { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower });
         Assert.True(json.Contains("\"threats30d\":2") && json.Contains("\"last_scan_type\"") && json.Contains("\"install_id\""), json);
+        var detailed = System.Text.Json.JsonSerializer.Serialize(new DeviceStatus { RemoteControl = true, QuarantineItems = new() { new RemoteQuarantineItem { Id = "q1", Name = "a.exe" } } },
+            new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web) { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower });
+        Assert.True(detailed.Contains("\"remote_control\":true") && detailed.Contains("\"quarantine_items\":[{\"id\":\"q1\""), detailed);
 
         var threw = false;
         try { new SiteClient(new TGuardSettings { SiteUrl = "http://site.example/" }); } catch (UriFormatException) { threw = true; }
         Assert.True(threw, "plain http site accepted");
+    }
+
+    [Test] static void OldSettingsAskBeforeUpdatingAndSharing()
+    {
+        var path = Path.Combine(TGuardPaths.Root, "old-settings.json");
+        File.WriteAllText(path, "{\"AutoInstallUpdates\":true,\"UsageStats\":true,\"Language\":\"en\"}");
+        var old = TGuardSettings.Load(path);
+        Assert.True(!old.AutoInstallUpdates && !old.PrivacyAsked && old.UsageStats && old.Language == "en" && old.SettingsVersion == TGuardSettings.CurrentVersion, "0.3 settings not migrated");
+        old.AutoInstallUpdates = true;
+        old.PrivacyAsked = true;
+        old.Save(path);
+        var again = TGuardSettings.Load(path);
+        Assert.True(again.AutoInstallUpdates && again.PrivacyAsked, "a choice made after the migration was reset");
+        var fresh = new TGuardSettings().Migrate();
+        Assert.True(!fresh.UsageStats && !fresh.CommunitySharing && !fresh.RemoteControl && !fresh.AutoInstallUpdates, "new installs must not share data or act remotely by default");
     }
 
     [Test] static void TamperedFeedsAreRejected()

@@ -57,6 +57,7 @@ public partial class SettingsView : UserControl, IRefreshable
         AddEmailButton.IsEnabled = App.Backend.ServiceAvailable;
         await ShowEmailAccountsAsync();
         UsageStats.IsEnabled = App.Backend.ServiceAvailable;
+        RemoteControl.IsChecked = _settings.RemoteControl;
         Saved.Text = "";
         if (_linking is null) ShowAccount(await App.Backend.AccountAsync());
     }
@@ -69,6 +70,8 @@ public partial class SettingsView : UserControl, IRefreshable
         AccountNote.Text = linked ? S.T("acc.linked.note") : S.T("acc.none.note");
         LinkButton.Content = linked ? S.T("acc.unlink") : S.T("acc.link");
         LinkButton.IsEnabled = App.Backend.ServiceAvailable;
+        RemoteControl.IsEnabled = linked && App.Backend.ServiceAvailable;
+        RemoteNote.Text = linked ? S.T("acc.remote.note") : S.T("acc.remote.off");
     }
 
     private async void Link_Click(object sender, RoutedEventArgs e)
@@ -203,6 +206,8 @@ public partial class SettingsView : UserControl, IRefreshable
         _settings.Exclusions = Lines(Exclusions.Text);
         _settings.UsageStats = UsageStats.IsChecked == true;
         _settings.CommunitySharing = Community.IsChecked == true;
+        _settings.RemoteControl = RemoteControl.IsChecked == true;
+        _settings.PrivacyAsked = true;
         _settings.RansomwareProtection = Ransomware.IsChecked == true;
         _settings.EmailProtection = EmailOn.IsChecked == true;
         try

@@ -23,7 +23,7 @@ public sealed class ServiceState
         _log = log;
         _notifier = notifier;
         Settings = TGuardSettings.Load();
-        if (!File.Exists(TGuardPaths.Settings)) Settings.Save();
+        Settings.Save();
         Engine = ScanEngine.CreateDefault(Settings);
         _log.LogInformation("TGuard started: {Rules} rules, {Sigs} signatures", Engine.Rules.Rules.Count, Engine.Signatures.Count);
     }

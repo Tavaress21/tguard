@@ -303,6 +303,17 @@ public sealed class Backend
 
     public async Task RemoveEmailAsync(string id) => await Call("email.remove", new { id });
 
+    public async Task<PendingUpdate?> PendingUpdateAsync()
+    {
+        if (!_serviceAvailable) return null;
+        var r = await _client.SendAsync("update.pending");
+        return r.Ok ? r.As<PendingUpdate>() : null;
+    }
+
+    public async Task InstallUpdateAsync() => await Call("update.install");
+
+    public async Task SnoozeUpdateAsync(int hours = 24) => await Call("update.snooze", new { hours });
+
     public async Task<int> ReportAsync(ReportRequest report) =>
         (await Call("report.send", report)).Data?["id"]?.GetValue<int>() ?? 0;
 

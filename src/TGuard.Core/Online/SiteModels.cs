@@ -29,6 +29,42 @@ public sealed class DeviceStatus
     public int BadUrls { get; set; }
     public bool ScanRunning { get; set; }
     public int ScanFiles { get; set; }
+    public string? ScanType { get; set; }
+    public int ScanThreats { get; set; }
+    public DateTimeOffset? ScanStarted { get; set; }
+    public bool RemoteControl { get; set; }
+    public string? PendingUpdate { get; set; }
+    public List<RemoteQuarantineItem>? QuarantineItems { get; set; }
+    public List<RemoteEmailAccount>? EmailList { get; set; }
+    public List<RemoteCheck>? Security { get; set; }
+    public DateTimeOffset? SecurityAt { get; set; }
+}
+
+public sealed class RemoteQuarantineItem
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Threat { get; set; } = "";
+    public DateTimeOffset Date { get; set; }
+    public long Size { get; set; }
+}
+
+public sealed class RemoteEmailAccount
+{
+    public string Id { get; set; } = "";
+    public string User { get; set; } = "";
+    public DateTimeOffset? LastCheck { get; set; }
+    public bool Ok { get; set; }
+    public int Scanned { get; set; }
+    public int Threats { get; set; }
+}
+
+public sealed class RemoteCheck
+{
+    public string Id { get; set; } = "";
+    public string Title { get; set; } = "";
+    public string Status { get; set; } = "";
+    public string Detail { get; set; } = "";
 }
 
 public sealed class SyncEvent
@@ -53,6 +89,7 @@ public sealed class RemoteCommand
 {
     public long Id { get; set; }
     public string Type { get; set; } = "";
+    public Dictionary<string, string> Args { get; set; } = new();
 }
 
 public sealed class SyncResponse
@@ -99,4 +136,5 @@ public sealed class AccountStatus
     public string? Name { get; set; }
     public string? Email { get; set; }
     public bool UsageStats { get; set; }
+    public bool RemoteControl { get; set; }
 }

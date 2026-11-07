@@ -62,7 +62,13 @@ public sealed class SiteClient
         if (root.TryGetProperty("commands", out var cmds) && cmds.ValueKind == JsonValueKind.Array)
             foreach (var c in cmds.EnumerateArray())
                 if (c.TryGetProperty("id", out var id) && id.TryGetInt64(out var cid) && c.TryGetProperty("type", out var type))
-                    result.Commands.Add(new RemoteCommand { Id = cid, Type = type.GetString() ?? "" });
+                {
+                    var command = new RemoteCommand { Id = cid, Type = type.GetString() ?? "" };
+                    if (c.TryGetProperty("args", out var args) && args.ValueKind == JsonValueKind.Object)
+                        foreach (var a in args.EnumerateObject())
+                            command.Args[a.Name] = a.Value.ValueKind == JsonValueKind.String ? a.Value.GetString() ?? "" : a.Value.GetRawText();
+                    result.Commands.Add(command);
+                }
         return result;
     }
 

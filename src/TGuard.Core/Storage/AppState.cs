@@ -15,6 +15,7 @@ public sealed class AppState
     public string? AccountEmail { get; set; }
     public DateTimeOffset? LastPing { get; set; }
     public DateTimeOffset? LastSyncedEvent { get; set; }
+    public PendingUpdate? PendingUpdate { get; set; }
 
     public string EnsureInstallId()
     {
@@ -114,4 +115,13 @@ public static class Schedule
         s.ScheduledQuickScan
         && now.Hour >= s.ScheduledQuickScanHour
         && st.LastScheduledScan != DateOnly.FromDateTime(now);
+}
+
+public sealed class PendingUpdate
+{
+    public string Version { get; set; } = "";
+    public string Installer { get; set; } = "";
+    public string Notes { get; set; } = "";
+    public DateTimeOffset Found { get; set; }
+    public DateTimeOffset? SnoozedUntil { get; set; }
 }

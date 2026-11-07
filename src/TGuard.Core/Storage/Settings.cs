@@ -52,7 +52,7 @@ public sealed class TGuardSettings
     public string UpdateUrl { get; set; } = "https://tguard.luis-tavares.pt/updates/";
     public bool AutoUpdate { get; set; } = true;
     public string AbuseChAuthKey { get; set; } = "";
-    public bool AutoInstallUpdates { get; set; } = true;
+    public bool AutoInstallUpdates { get; set; }
     public List<string> ExtraUpdateKeys { get; set; } = new();
 
     public bool ProcessGuardEnabled { get; set; } = true;
@@ -63,7 +63,12 @@ public sealed class TGuardSettings
     public bool CommunitySharing { get; set; } = false;
 
     public string SiteUrl { get; set; } = "https://luis-tavares.pt/";
-    public bool UsageStats { get; set; } = true;
+    public bool UsageStats { get; set; }
+    public bool PrivacyAsked { get; set; }
+    public bool RemoteControl { get; set; }
+    public int SettingsVersion { get; set; }
+
+    public const int CurrentVersion = 2;
 
     private static readonly JsonSerializerOptions Json = new()
     {
@@ -77,10 +82,21 @@ public sealed class TGuardSettings
         try
         {
             if (File.Exists(path))
-                return JsonSerializer.Deserialize<TGuardSettings>(File.ReadAllText(path), Json) ?? new();
+                return (JsonSerializer.Deserialize<TGuardSettings>(File.ReadAllText(path), Json) ?? new()).Migrate();
         }
         catch (JsonException) { }
-        return new();
+        return new TGuardSettings().Migrate();
+    }
+
+    public TGuardSettings Migrate()
+    {
+        if (SettingsVersion < 2)
+        {
+            AutoInstallUpdates = false;
+            PrivacyAsked = false;
+        }
+        SettingsVersion = CurrentVersion;
+        return this;
     }
 
     public void Save(string? path = null)

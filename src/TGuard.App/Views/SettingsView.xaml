@@ -133,6 +133,11 @@
                     <Border Height="1" Background="{StaticResource Line}" />
                     <CheckBox x:Name="UsageStats" Style="{StaticResource Switch}" Content="{s:Tr acc.stats}" Margin="0,12" />
                     <Border Height="1" Background="{StaticResource Line}" />
+                    <StackPanel Margin="0,12">
+                        <CheckBox x:Name="RemoteControl" Style="{StaticResource Switch}" Content="{s:Tr acc.remote}" />
+                        <TextBlock x:Name="RemoteNote" Text="{s:Tr acc.remote.note}" Style="{StaticResource Small}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                    </StackPanel>
+                    <Border Height="1" Background="{StaticResource Line}" />
                     <WrapPanel Margin="0,14">
                         <Button Style="{StaticResource SmallButton}" Content="{s:Tr acc.help}" Click="Help_Click" Margin="0,0,8,0" />
                         <Button Style="{StaticResource SmallButton}" Content="{s:Tr acc.report}" Click="ReportScam_Click" Margin="0,0,8,0" />

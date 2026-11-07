@@ -89,7 +89,8 @@ public sealed class PipeServer : BackgroundService
 
     private static readonly HashSet<string> Privileged = new()
         { "settings.set", "quarantine.restore", "quarantine.delete", "scan.cancel", "trust.remove",
-          "account.link.start", "account.link.poll", "account.unlink", "report.send", "email.add", "email.remove" };
+          "account.link.start", "account.link.poll", "account.unlink", "report.send", "email.add", "email.remove",
+          "update.install", "update.snooze" };
 
     private AccountStatus Account() => new()
     {
@@ -97,6 +98,7 @@ public sealed class PipeServer : BackgroundService
         Name = _state.State.AccountName,
         Email = _state.State.AccountEmail,
         UsageStats = _state.Settings.UsageStats,
+        RemoteControl = _state.Settings.RemoteControl,
     };
 
     private async Task<Response> Handle(Request req)
@@ -152,6 +154,14 @@ public sealed class PipeServer : BackgroundService
 
             case "update.now":
                 return Response.Success(await _updates.RunAsync());
+            case "update.pending":
+                return Response.Success(_updates.Pending);
+            case "update.install":
+                return (await _updates.InstallPendingAsync())
+                    ? Response.Success()
+                    : Response.Fail("no update is waiting to be installed");
+            case "update.snooze":
+                return Response.Success(_updates.Snooze(TimeSpan.FromHours(req.Args?["hours"]?.GetValue<int>() is int h and > 0 and <= 168 ? h : 24)));
 
             case "trust.list":
                 return Response.Success(_state.Engine.Trust.List());

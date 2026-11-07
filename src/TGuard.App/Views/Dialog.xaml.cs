@@ -45,6 +45,9 @@ public partial class Dialog : Window
     public static bool Confirm(string title, string message, string ok, DialogKind kind = DialogKind.Warning) =>
         new Dialog(title, message, ok, S.T("cancel"), kind) { Owner = OwnerWindow() }.ShowDialog() == true;
 
+    public static bool Ask(string title, string message, string ok, string cancel, DialogKind kind = DialogKind.Info) =>
+        new Dialog(title, message, ok, cancel, kind) { Owner = OwnerWindow() }.ShowDialog() == true;
+
     public static void Alert(string title, string message, DialogKind kind = DialogKind.Info) =>
         new Dialog(title, message, "OK", null, kind) { Owner = OwnerWindow() }.ShowDialog();
 }

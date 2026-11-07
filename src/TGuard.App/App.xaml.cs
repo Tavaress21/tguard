@@ -63,7 +63,16 @@ public partial class App : Application
                 });
                 return;
             }
-            if (n.Kind is "threat" or "scan-done" or "usb" or "usb-done" or "ransomware" or "email" && Backend.NotificationsEnabled && !string.IsNullOrEmpty(n.Title))
+            if (n.Kind == "app-update-available")
+            {
+                Dispatcher.BeginInvoke(async () =>
+                {
+                    _tray?.Notify(n.Title, n.Message, false);
+                    if (MainWindow?.IsVisible == true) await PromptAsync();
+                });
+                return;
+            }
+            if (n.Kind is "threat" or "scan-done" or "usb" or "usb-done" or "ransomware" or "email" or "remote" && Backend.NotificationsEnabled && !string.IsNullOrEmpty(n.Title))
                 Dispatcher.BeginInvoke(() => _tray?.Notify(n.Title, n.Message, n.Kind is "threat" or "ransomware"));
         };
 
@@ -72,7 +81,39 @@ public partial class App : Application
         reconnect.Tick += async (_, _) => { if (!Backend.ServiceAvailable) await Backend.ConnectAsync(); };
         reconnect.Start();
 
+        win.IsVisibleChanged += async (_, _) => { if (win.IsVisible) await PromptAsync(); };
         if (!args.Contains("--tray")) win.Show();
+    }
+
+    private bool _prompting;
+
+    private async Task PromptAsync()
+    {
+        if (_prompting || !Backend.ServiceAvailable || Backend.Showcase is not null) return;
+        _prompting = true;
+        try
+        {
+            var settings = await Backend.GetSettingsAsync();
+            if (!settings.PrivacyAsked)
+            {
+                var share = Views.Dialog.Ask(S.T("privacy.title"), S.T("privacy.message"), S.T("privacy.yes"), S.T("privacy.no"));
+                settings.UsageStats = share;
+                settings.CommunitySharing = share;
+                settings.PrivacyAsked = true;
+                await Backend.SaveSettingsAsync(settings);
+            }
+
+            var pending = await Backend.PendingUpdateAsync();
+            if (pending is not null && (pending.SnoozedUntil is null || pending.SnoozedUntil < DateTimeOffset.Now))
+            {
+                if (Views.Dialog.Ask(S.T("upd.title"), S.F("upd.message", pending.Version), S.T("upd.now"), S.T("upd.later"), Views.DialogKind.Success))
+                    await Backend.InstallUpdateAsync();
+                else
+                    await Backend.SnoozeUpdateAsync();
+            }
+        }
+        catch (Exception) { }
+        finally { _prompting = false; }
     }
 
     private static void ApplyCulture()
