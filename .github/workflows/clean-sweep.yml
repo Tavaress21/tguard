@@ -1,0 +1,37 @@
+name: Clean file sweep
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 4 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  sweep:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Build CLI
+        run: dotnet publish src/TGuard.Cli -c Release -r win-x64 --self-contained false -o publish/cli
+
+      - name: Download well-known installers
+        shell: pwsh
+        run: ./scripts/ci-clean-samples.ps1 -Target "$env:RUNNER_TEMP\clean"
+
+      - name: Scan clean files
+        shell: pwsh
+        run: ./scripts/ci-clean-sweep.ps1 -Cli publish/cli/tguard.exe -Paths "$env:RUNNER_TEMP\clean", "C:\Windows\System32", "C:\Windows\SysWOW64", "C:\Program Files", "C:\Program Files (x86)", "C:\ProgramData\Microsoft\Windows\Start Menu" -Report sweep.txt
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: clean-sweep
+          path: sweep.txt
