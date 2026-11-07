@@ -56,13 +56,15 @@ Wi-Fi security and suspicious startup entries.
 
 Every file gets a score from 0 to 100. 40 and up is suspicious, 80 and up is malicious.
 
-**Updates.** Signatures, URL lists and new versions of TGuard are checked every 3 hours and
-installed silently. Everything is signed in GitHub Actions with ECDSA keys and verified on the PC,
-so the web server can't push anything by itself. See [`server/`](server/README.md).
+**Updates.** Signatures, URL lists and new versions of TGuard are checked every 3 hours.
+Signatures are installed silently; new versions are installed once you confirm. Everything is
+signed in GitHub Actions with ECDSA keys and verified on the PC, so the web server can't push
+anything by itself. See [`server/`](server/README.md).
 
 **Account (optional).** A PC can be linked to a [luis-tavares.pt](https://luis-tavares.pt)
-account. The client area then shows the protection status of each PC and the threats it found,
-and can ask the PC to run a scan or an update. From the app you can also report a scam or a false
+account. The client area then shows the protection status of each PC, the threats it found, the
+quarantine, the protected email accounts and the Windows security check, and, if you allow it on
+the PC, can ask it to scan, update or change a protection. From the app you can also report a scam or a false
 positive and open a support ticket.
 
 ## Installing
@@ -78,12 +80,21 @@ Files and emails are always scanned on the PC. They are never uploaded.
 
 | What | When | Sent |
 | --- | --- | --- |
-| Usage statistics | on by default, once a day | random install ID, TGuard and Windows version, number of signatures, which protections are on, quarantine and threat counts, date of the last scan and update |
-| Threat sharing | off by default | detection name, where it was found (file, email, web...), score and date of each threat |
-| Linked account | only after you link the PC | the above every 5 minutes, plus the file name (or the email subject and sender) and the action taken |
+| Usage statistics | only if you agree when TGuard first starts, then once a day | random install ID, TGuard and Windows version, number of signatures, which protections are on, quarantine and threat counts, date of the last scan and update |
+| Threat sharing | asked together with the statistics | detection name, where it was found (file, email, web...), score and date of each threat |
+| Linked account | only after you link the PC | the above every 5 minutes, plus the file name (or the email subject and sender) and the action taken, the files in quarantine, the protected email addresses and the Windows security check |
 
 Each of these can be turned off in Settings. Unlinking the PC, from the app or from the client
 area, stops the account data straight away.
+
+**Remote actions.** A linked PC only accepts requests from the client area (scan, update, check
+email, turn a protection on or off, restore or delete a quarantined file) after you turn on
+"Allow actions from the client area" in Settings > Account. Only the account the PC is linked to
+can send them, and each one shows up on the PC as a notification.
+
+**New versions.** Signatures update silently every 3 hours. When a new version of TGuard is
+ready, the app asks "Update now" or "Remind me later" the next time you open it, unless you turn
+on "Install new versions without asking".
 
 ## Building
 
