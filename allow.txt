@@ -1,0 +1,2 @@
+# TGuard safe files (sha256)
+cce40b3f121a4976f8bf2957f47bf0b62801fe85080644f02c712cf9c0ddbabc

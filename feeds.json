@@ -1,0 +1,16 @@
+{
+  "generated": "2026-11-14T11:30:08.314136+00:00",
+  "signatures": {
+    "name": "signatures.txt",
+    "sha256": "79b1397013c89d68287157c4ae9ac32d43dcc2565a7b502cf5a7de8262ac54ca"
+  },
+  "urls": {
+    "name": "urls.txt",
+    "sha256": "f649b6a46c0ce130336b75a76687eac393b45331b07821b05b6939863a6b9d0e"
+  },
+  "rules": null,
+  "allow": {
+    "name": "allow.txt",
+    "sha256": "12fdd28fd6169fe4986ae094a4dfdf242090ea3d75341c26b0e715b5cd81c2bd"
+  }
+}
